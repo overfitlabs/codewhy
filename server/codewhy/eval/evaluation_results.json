@@ -1,0 +1,1049 @@
+{
+  "evaluatedAt": "2026-10-28T19:39:58.953Z",
+  "benchmarkCasesCount": 20,
+  "systems": {
+    "CodeWhy Graph Pipeline": {
+      "totalScore": 87.57,
+      "meanScore": 4.38,
+      "cases": [
+        {
+          "caseId": "CASE_01_EXPRESS_SUPPORTED_COMPROMISE",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 1,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.67,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 3/3 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_02_BACKSTAGE_SUPPORTED_SUPERSEDED",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.8,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.8,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 3/3 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_03_EXPRESS_CONTRADICTED_PREMISE_MOCHA_JEST",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.75,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly refuted false premise"
+            ]
+          },
+          "status": "PREMISE_CONTRADICTED",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_04_BACKSTAGE_INSUFFICIENT_EVIDENCE_BENCHMARKS",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.75,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 2/2 expected citations matched",
+              "D5: Correctly declined to speculate on missing benchmarks"
+            ]
+          },
+          "status": "ABSTAIN",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_05_EXPRESS_PARTIAL_EVIDENCE_MULTIPART",
+          "scores": {
+            "claimSupport": 0.5,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.33,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 3.83,
+            "notes": [
+              "D1: Only 1/2 citations supported",
+              "D2: 2/2 expected citations matched",
+              "D5: Correctly labeled partial support"
+            ]
+          },
+          "status": "PARTIALLY_SUPPORTED",
+          "confidence": "MEDIUM"
+        },
+        {
+          "caseId": "CASE_06_BACKSTAGE_CONTRADICTED_GOT_MIGRATION",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.67,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.67,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly refuted false premise"
+            ]
+          },
+          "status": "PREMISE_CONTRADICTED",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_07_BACKSTAGE_CONTRADICTED_BROWSER_BAN",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 1,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly refuted false premise"
+            ]
+          },
+          "status": "PREMISE_CONTRADICTED",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_08_EXPRESS_40_DECOUPLING_RATIONALE",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 3.67,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_09_EXPRESS_CONTRADICTED_CVE_PANIC",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 1,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly declined to speculate on missing benchmarks"
+            ]
+          },
+          "status": "ABSTAIN",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_10_BACKSTAGE_ORIGINAL_ADR013_MANDATE",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_11_BACKSTAGE_ISSUE_24590_COMPATIBILITY",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.75,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_12_EXPRESS_URLENCODED_CO_RESTORATION",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.42,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_13_BACKSTAGE_AXIOS_EVALUATION_ABSENCE",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.25,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly declined to speculate on missing benchmarks"
+            ]
+          },
+          "status": "ABSTAIN",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_14_EXPRESS_BODY_PARSER_REMOVAL_MAINTAINED",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 3.92,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_15_BACKSTAGE_NODE_20_MINIMUM_REQUIREMENT",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 1,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_16_EXPRESS_SECURITY_MYTH_TEMPORARY_FILES",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 1,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: Correctly refuted false premise"
+            ]
+          },
+          "status": "PREMISE_CONTRADICTED",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_17_BACKSTAGE_TYPEOF_FETCH_TYPESCRIPT",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_18_EXPRESS_REMOVED_MIDDLEWARE_OBJECT_DEFINE_PROPERTY",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 3.67,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_19_BACKSTAGE_CHRONOLOGICAL_SUCCESSION_ALONE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 2.75,
+            "notes": [
+              "D1: Only 0/1 citations supported",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ABSTAIN",
+          "confidence": "ABSTAIN"
+        },
+        {
+          "caseId": "CASE_20_EXPRESS_STATIC_MIDDLEWARE_EXCEPTION",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.17,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        }
+      ]
+    },
+    "BM25 Keyword Baseline": {
+      "totalScore": 59.62,
+      "meanScore": 2.98,
+      "cases": [
+        {
+          "caseId": "CASE_01_EXPRESS_SUPPORTED_COMPROMISE",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.2,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 2.87,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 3/3 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_02_BACKSTAGE_SUPPORTED_SUPERSEDED",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.4,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.4,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 3/3 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_03_EXPRESS_CONTRADICTED_PREMISE_MOCHA_JEST",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 3.25,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_04_BACKSTAGE_INSUFFICIENT_EVIDENCE_BENCHMARKS",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 2.58,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 2/2 expected citations matched",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_05_EXPRESS_PARTIAL_EVIDENCE_MULTIPART",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 0.5,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 0.5,
+            "total": 1.33,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_06_BACKSTAGE_CONTRADICTED_GOT_MIGRATION",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.33,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 3.33,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_07_BACKSTAGE_CONTRADICTED_BROWSER_BAN",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 3.25,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_08_EXPRESS_40_DECOUPLING_RATIONALE",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 3.08,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_09_EXPRESS_CONTRADICTED_CVE_PANIC",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 2.92,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_10_BACKSTAGE_ORIGINAL_ADR013_MANDATE",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.75,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 4.75,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_11_BACKSTAGE_ISSUE_24590_COMPATIBILITY",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 3.17,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_12_EXPRESS_URLENCODED_CO_RESTORATION",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 0.5,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 2.33,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_13_BACKSTAGE_AXIOS_EVALUATION_ABSENCE",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 0,
+            "total": 1.58,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_14_EXPRESS_BODY_PARSER_REMOVAL_MAINTAINED",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 2.83,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_15_BACKSTAGE_NODE_20_MINIMUM_REQUIREMENT",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.2,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 2.87,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_16_EXPRESS_SECURITY_MYTH_TEMPORARY_FILES",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 2.58,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_17_BACKSTAGE_TYPEOF_FETCH_TYPESCRIPT",
+          "scores": {
+            "claimSupport": 0.67,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 3.17,
+            "notes": [
+              "D1: Only 2/3 citations supported",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_18_EXPRESS_REMOVED_MIDDLEWARE_OBJECT_DEFINE_PROPERTY",
+          "scores": {
+            "claimSupport": 0.33,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 2.83,
+            "notes": [
+              "D1: Only 1/3 citations supported",
+              "D2: 1/1 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_19_BACKSTAGE_CHRONOLOGICAL_SUCCESSION_ALONE",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 3,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 1/1 expected citations matched",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_20_EXPRESS_STATIC_MIDDLEWARE_EXCEPTION",
+          "scores": {
+            "claimSupport": 1,
+            "citationRelevance": 1,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 3.5,
+            "notes": [
+              "D1: All citations verified and support claim",
+              "D2: 2/2 expected citations matched"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        }
+      ]
+    },
+    "Naive Synthesis Baseline": {
+      "totalScore": 22.6,
+      "meanScore": 1.13,
+      "cases": [
+        {
+          "caseId": "CASE_01_EXPRESS_SUPPORTED_COMPROMISE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_02_BACKSTAGE_SUPPORTED_SUPERSEDED",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.4,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 1,
+            "total": 2.4,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_03_EXPRESS_CONTRADICTED_PREMISE_MOCHA_JEST",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_04_BACKSTAGE_INSUFFICIENT_EVIDENCE_BENCHMARKS",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 0,
+            "total": 0.25,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_05_EXPRESS_PARTIAL_EVIDENCE_MULTIPART",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 0.5,
+            "total": 0.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_06_BACKSTAGE_CONTRADICTED_GOT_MIGRATION",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_07_BACKSTAGE_CONTRADICTED_BROWSER_BAN",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_08_EXPRESS_40_DECOUPLING_RATIONALE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_09_EXPRESS_CONTRADICTED_CVE_PANIC",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_10_BACKSTAGE_ORIGINAL_ADR013_MANDATE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.25,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_11_BACKSTAGE_ISSUE_24590_COMPATIBILITY",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.25,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_12_EXPRESS_URLENCODED_CO_RESTORATION",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_13_BACKSTAGE_AXIOS_EVALUATION_ABSENCE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 0,
+            "total": 0,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_14_EXPRESS_BODY_PARSER_REMOVAL_MAINTAINED",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_15_BACKSTAGE_NODE_20_MINIMUM_REQUIREMENT",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.2,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.2,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_16_EXPRESS_SECURITY_MYTH_TEMPORARY_FILES",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - answered false premise as true"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_17_BACKSTAGE_TYPEOF_FETCH_TYPESCRIPT",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_18_EXPRESS_REMOVED_MIDDLEWARE_OBJECT_DEFINE_PROPERTY",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.25,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.25,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_19_BACKSTAGE_CHRONOLOGICAL_SUCCESSION_ALONE",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0,
+            "supersessionDetection": 1,
+            "epistemicAbstention": 0,
+            "total": 1,
+            "notes": [
+              "D1: No verified citations provided",
+              "D5: FAILED - fabricated unrecorded benchmark claims"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        },
+        {
+          "caseId": "CASE_20_EXPRESS_STATIC_MIDDLEWARE_EXCEPTION",
+          "scores": {
+            "claimSupport": 0,
+            "citationRelevance": 0,
+            "rationaleAttribution": 0.5,
+            "supersessionDetection": 0,
+            "epistemicAbstention": 1,
+            "total": 1.5,
+            "notes": [
+              "D1: No verified citations provided"
+            ]
+          },
+          "status": "ANSWERED",
+          "confidence": "HIGH"
+        }
+      ]
+    }
+  }
+}
