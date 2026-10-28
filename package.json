@@ -5,10 +5,6 @@
   "type": "module",
   "author": "Shubham Singh Ranswal",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/shubhamranswal/devlens-ai.git"
-  },
   "scripts": {
     "dev": "concurrently -k \"npm run server\" \"npm run dev:client\"",
     "server": "node server/index.js",
@@ -21,10 +17,6 @@
     "test:codewhy": "node --test tests/codewhy.test.js",
     "test:integration": "node --test tests/integration.test.js"
   },
-  "bugs": {
-    "url": "https://github.com/shubhamranswal/devlens-ai/issues"
-  },
-  "homepage": "https://github.com/shubhamranswal/devlens-ai#readme",
   "dependencies": {
     "@google/genai": "^2.27.0",
     "cors": "^2.8.6",

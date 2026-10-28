@@ -43,31 +43,23 @@ cp .env.example .env
 ```
 *(See Section 5 for required vs. optional environment variable names).*
 
-### Step 3: Start the Backend Server
+### Step 3: Run Development Environment
+You can start both backend and frontend concurrently with a single command:
 ```bash
-# Terminal 1:
-node server/index.js
+npm run dev
 ```
 *Expected console output:*
 ```text
 ◇ injected env from .env
-[DevLens AI] Server running on http://localhost:5000
-```
-
-### Step 4: Start the Frontend Client
-```bash
-# Terminal 2:
-npm run dev:client
-```
-*Expected console output:*
-```text
+[CodeWhy] Server running on http://localhost:5000
   VITE v8.3.2  ready in 250 ms
   ➜  Local:   http://localhost:3000/
 ```
-*(Alternatively, you can test the production bundle directly at `http://localhost:5000` after running `npm run build`).*
 
-### Step 5: Open the UI
-Open your browser to **`http://localhost:3000`** (or **`http://localhost:5000`**).
+*(Alternatively, run in separate terminals: `node server/index.js` in Terminal 1 and `npm run dev:client` in Terminal 2. For production mode, run `npm run build` followed by `npm start`).*
+
+### Step 4: Open the UI
+Open your browser to **`http://localhost:3000`** (or **`http://localhost:5000`** if running the production build).
 **CodeWhy is the default, primary landing experience.**
 
 ---
