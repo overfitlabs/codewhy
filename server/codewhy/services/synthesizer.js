@@ -64,7 +64,8 @@ export async function synthesizeWhyAnswer(params = {}) {
       citations: [],
       epistemicValidation: {
         valid: true,
-        errors: []
+        errors: [],
+        claimSupportConfirmed: false
       },
       sourceMode: 'unindexed_repository',
       storageMode: 'neo4j_active'

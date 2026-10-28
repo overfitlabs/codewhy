@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { analyzeRouter } from './routes/analyze.js';
 import { aiRouter } from './routes/ai.js';
@@ -40,7 +41,7 @@ app.use('/api/codewhy', codewhyRouter);
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'DevLens AI Analyzer',
+    service: 'CodeWhy Rationale Engine',
     version: '1.0.0-mvp',
     timestamp: new Date().toISOString()
   });
@@ -72,10 +73,44 @@ app.use((err, req, res, next) => {
 
 // Serve static frontend files in production if dist exists
 const distPath = path.join(__dirname, '../dist');
+const indexPath = path.join(distPath, 'index.html');
 app.use(express.static(distPath));
 
 app.use((req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: `Not found: ${req.method} ${req.path}` });
+  }
+
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+
+  return res.status(503).type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CodeWhy - Production Build Required</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .card { max-width: 580px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    h1 { color: #58a6ff; font-size: 20px; margin-top: 0; }
+    p { font-size: 14px; line-height: 1.6; color: #8b949e; }
+    code { background: #21262d; color: #f0f6fc; padding: 3px 8px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; }
+    pre { background: #21262d; color: #7ee787; padding: 12px 16px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>CodeWhy: Production Frontend Build Required</h1>
+    <p>The backend API is running on port ${PORT}, but the client production bundle has not been generated (<code>dist/index.html</code> was not found).</p>
+    <p><strong>To run in production mode:</strong></p>
+    <pre>npm run build\nnode server/index.js</pre>
+    <p><strong>To run in development mode (with hot reloading):</strong></p>
+    <pre>npm run dev</pre>
+    <p><em>API health check is active at <a href="/api/health" style="color: #58a6ff;">/api/health</a>.</em></p>
+  </div>
+</body>
+</html>`);
 });
 
 const isMainModule =
@@ -84,7 +119,7 @@ const isMainModule =
 
 if (process.env.VERCEL !== '1' && isMainModule) {
   app.listen(PORT, () => {
-    console.log(`[DevLens AI] Server running on http://localhost:${PORT}`);
+    console.log(`[CodeWhy] Server running on http://localhost:${PORT}`);
   });
 }
 

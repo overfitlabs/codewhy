@@ -155,19 +155,21 @@ export function validateWhyAnswer(answer, ingestedEvidenceMap = new Map()) {
   }
 
   // Handle Abstention or Premise Contradicted responses
-  if (answer.status === 'ABSTAIN' || answer.status === 'PREMISE_CONTRADICTED') {
-    if (!answer.abstentionReason || typeof answer.abstentionReason !== 'string') {
-      errors.push('Abstention response must include an explicit abstentionReason string');
-    }
-    if (!Array.isArray(answer.missingInformation) || answer.missingInformation.length === 0) {
-      errors.push('Abstention response must list at least one missingInformation item explaining the gap');
-    }
-    if (answer.status === 'PREMISE_CONTRADICTED') {
-      if (!Array.isArray(answer.citations) || answer.citations.length === 0) {
-        errors.push('PREMISE_CONTRADICTED response must cite the specific artifact (e.g. package.json) refuting the premise');
+  if (answer.status === 'ABSTAIN' || answer.status === 'PREMISE_CONTRADICTED' || answer.status === 'UNINDEXED_REPOSITORY') {
+    if (answer.status !== 'UNINDEXED_REPOSITORY') {
+      if (!answer.abstentionReason || typeof answer.abstentionReason !== 'string') {
+        errors.push('Abstention response must include an explicit abstentionReason string');
+      }
+      if (!Array.isArray(answer.missingInformation) || answer.missingInformation.length === 0) {
+        errors.push('Abstention response must list at least one missingInformation item explaining the gap');
+      }
+      if (answer.status === 'PREMISE_CONTRADICTED') {
+        if (!Array.isArray(answer.citations) || answer.citations.length === 0) {
+          errors.push('PREMISE_CONTRADICTED response must cite the specific artifact (e.g. package.json) refuting the premise');
+        }
       }
     }
-    return { valid: errors.length === 0, errors };
+    return { valid: errors.length === 0, errors, claimSupportConfirmed: false };
   }
 
   // 2. Short answer
@@ -202,6 +204,7 @@ export function validateWhyAnswer(answer, ingestedEvidenceMap = new Map()) {
   }
 
   // 4. Verified facts cross-referencing & Claim-Level Support
+  let factsWithVerifiedSupport = 0;
   if (!Array.isArray(answer.verifiedFacts)) {
     errors.push('verifiedFacts must be an array');
   } else {
@@ -219,6 +222,8 @@ export function validateWhyAnswer(answer, ingestedEvidenceMap = new Map()) {
         const isSupported = validateClaimSupport(fact.statement, sourceCit);
         if (!isSupported) {
           errors.push(`Claim "${fact.statement.slice(0, 40)}..." cites "${fact.sourceId}", but the cited source does not substantiate the claim (irrelevant or mismatched citation)`);
+        } else {
+          factsWithVerifiedSupport++;
         }
       }
     });
@@ -254,5 +259,13 @@ export function validateWhyAnswer(answer, ingestedEvidenceMap = new Map()) {
     errors.push('timeline must be an array');
   }
 
-  return { valid: errors.length === 0, errors };
+  const claimSupportConfirmed =
+    errors.length === 0 &&
+    Array.isArray(answer.citations) &&
+    answer.citations.length > 0 &&
+    Array.isArray(answer.verifiedFacts) &&
+    answer.verifiedFacts.length > 0 &&
+    factsWithVerifiedSupport === answer.verifiedFacts.length;
+
+  return { valid: errors.length === 0, errors, claimSupportConfirmed };
 }

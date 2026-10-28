@@ -783,7 +783,7 @@ export class AIProvider {
       const context = this.buildCompactContext(analysis);
       const repoName = analysis?.repository?.fullName || 'Unknown Repository';
 
-      const systemInstruction = `You are DevLens AI, an expert software architecture analyst.
+      const systemInstruction = `You are CodeWhy, an expert software architecture analyst.
 Analyze the provided repository context and produce a structured, factual executive architectural summary.
 
 STRICT GROUNDING RULES:
@@ -821,7 +821,7 @@ Please generate the architectural summary following the grounding rules.`;
       };
     } catch (err) {
       const safeMsg = sanitizeGeminiError(err.message, allRawKeys);
-      console.error('[DevLens AI] Gemini summary error:', safeMsg);
+      console.error('[CodeWhy] Gemini summary error:', safeMsg);
       return {
         available: false,
         error: `Gemini Error: ${safeMsg}`,
@@ -895,7 +895,7 @@ Please provide an evidence-grounded answer following the strict grounding rules.
         options.focusEntity || null
       );
 
-      const systemInstruction = `You are DevLens AI Codebase & Project Memory Assistant.
+      const systemInstruction = `You are CodeWhy Codebase & Project Memory Assistant.
 Your objective is to answer developer and debugging questions based STRICTLY on the provided repository scan context and the Neo4j Project Memory Graph Evidence.
 
 STRICT GROUNDING & INVESTIGATION RULES:
@@ -943,7 +943,7 @@ STRICT GROUNDING & INVESTIGATION RULES:
       };
     } catch (err) {
       const safeMsg = sanitizeGeminiError(err.message, allRawKeys);
-      console.error('[DevLens AI] Gemini Q&A error:', safeMsg);
+      console.error('[CodeWhy] Gemini Q&A error:', safeMsg);
       return {
         available: false,
         error: `Gemini Error: ${safeMsg}`,

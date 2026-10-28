@@ -44,13 +44,13 @@ NEO4J_DATABASE=neo4j
 
 ### Step 1: Start the Backend Server
 ```bash
-# From the devlens-ai root:
+# From the CodeWhy directory (or run both servers with: npm run dev):
 node server/index.js
 ```
 *Expected log output:*
 ```text
-◇ injected env (9) from .env
-[DevLens AI] Server running on http://localhost:5000
+◇ injected env from .env
+[CodeWhy] Server running on http://localhost:5000
 ```
 
 ### Step 2: Start the Frontend Client

@@ -268,7 +268,9 @@ codewhyRouter.post('/why-code', async (req, res) => {
 
     // Attach verified storage and source origin metadata
     const health = await checkNeo4jHealth().catch(() => ({ connected: false }));
-    answer.sourceMode = provenance.sourceMode || 'verified_fixture';
+    if (!answer.sourceMode) {
+      answer.sourceMode = provenance.sourceMode || 'verified_fixture';
+    }
     answer.storageMode = health.connected ? 'neo4j_active' : 'in_memory_verified_fallback';
 
     res.json(answer);

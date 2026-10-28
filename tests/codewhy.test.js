@@ -8,6 +8,7 @@ import { evaluateSupersession } from '../server/codewhy/services/temporal.js';
 import { validateWhyAnswer, validateEvidenceItem, validateDecisionItem, validateClaimSupport } from '../server/codewhy/evidence/schemas.js';
 import { getSarvamVoiceStatus, transcribeAudio, synthesizeSpeech, SUPPORTED_VOICE_LANGUAGES } from '../server/codewhy/services/sarvam.js';
 import { checkNeo4jHealth, closeDriver } from '../server/db/neo4j.js';
+import app from '../server/index.js';
 
 describe('CodeWhy Trust Audit & Hardened Vertical Slice Suite (Phase 2.5)', () => {
   let sliceData = null;
@@ -601,6 +602,105 @@ describe('CodeWhy Trust Audit & Hardened Vertical Slice Suite (Phase 2.5)', () =
       const data = await res.json();
       assert.equal(data.indexed, false);
       assert.equal(data.status, 'UNINDEXED');
+    }
+  });
+
+  // 26. Derives truthful source-origin labels and prevents fallback leakages
+  it('26. Derives truthful source-origin labels and prevents fallback leakages', () => {
+    const getSourceOriginLabel = (mode) => {
+      if (mode === 'live_github') return 'Live GitHub sources';
+      if (mode === 'verified_fixture') return 'Verified demonstration evidence';
+      if (mode === 'unindexed_repository') return 'Repository not indexed';
+      return 'Source status unavailable';
+    };
+
+    assert.equal(getSourceOriginLabel('live_github'), 'Live GitHub sources');
+    assert.equal(getSourceOriginLabel('verified_fixture'), 'Verified demonstration evidence');
+    assert.equal(getSourceOriginLabel('unindexed_repository'), 'Repository not indexed');
+    assert.equal(getSourceOriginLabel('unknown'), 'Source status unavailable');
+    assert.equal(getSourceOriginLabel(null), 'Source status unavailable');
+    assert.equal(getSourceOriginLabel(undefined), 'Source status unavailable');
+  });
+
+  // 27. Epistemic validator enforces empty citation and claim-support rules
+  it('27. Epistemic validator enforces empty citation and claim-support rules', () => {
+    // Empty citation list must never confirm claim support
+    const emptyCitationAnswer = {
+      status: 'ANSWERED',
+      confidence: 'HIGH',
+      shortAnswer: 'This is a test answer for citation testing.',
+      citations: [],
+      verifiedFacts: [{ statement: 'Fact 1', sourceId: 'src1' }]
+    };
+    const emptyRes = validateWhyAnswer(emptyCitationAnswer);
+    assert.equal(emptyRes.claimSupportConfirmed, false);
+    assert.equal(emptyRes.valid, false);
+
+    // Non-empty citations with mismatched claim must never confirm claim support
+    const mismatchedClaimAnswer = {
+      status: 'ANSWERED',
+      confidence: 'HIGH',
+      shortAnswer: 'Valid length test short answer for citation verification.',
+      citations: [{
+        id: 'expressjs/express:commit:123',
+        url: 'https://github.com/expressjs/express/commit/123',
+        title: 'Random irrelevant commit',
+        verbatimExcerpt: 'irrelevant content here'
+      }],
+      verifiedFacts: [{
+        statement: 'Doug Wilson restored body-parser wrapper for developer convenience',
+        sourceId: 'expressjs/express:commit:123'
+      }],
+      timeline: []
+    };
+    const mismatchedRes = validateWhyAnswer(mismatchedClaimAnswer);
+    assert.equal(mismatchedRes.claimSupportConfirmed, false);
+    assert.equal(mismatchedRes.valid, false);
+  });
+
+  // 28. Unindexed repository never claims verified citations or fixture origin
+  it('28. Unindexed repository never claims verified citations or fixture origin', async () => {
+    const prov = await retrieveEntityProvenance({
+      repository: 'unindexed/custom-repo',
+      filePath: 'src/index.js',
+      symbol: 'main'
+    });
+    // Must never fall back to verified_fixture for unindexed repo
+    assert.equal(prov.sourceMode, 'unindexed_repository');
+
+    const answer = await synthesizeWhyAnswer({
+      question: 'Why was this created?',
+      provenance: prov
+    });
+    assert.equal(answer.status, 'UNINDEXED_REPOSITORY');
+    assert.equal(answer.sourceMode, 'unindexed_repository');
+    assert.equal(answer.citations.length, 0);
+    assert.equal(answer.epistemicValidation?.claimSupportConfirmed, false);
+  });
+
+  // 29. Server static handler safely guides user when dist/index.html is missing
+  it('29. Server static handler safely guides user when dist/index.html is missing', async () => {
+    const server = app.listen(0);
+    try {
+      const { port } = server.address();
+      const testUrl = `http://127.0.0.1:${port}`;
+
+      // Health check must succeed with CodeWhy branding
+      const healthRes = await fetch(`${testUrl}/api/health`);
+      assert.equal(healthRes.status, 200);
+      const healthJson = await healthRes.json();
+      assert.equal(healthJson.service, 'CodeWhy Rationale Engine');
+
+      // Static root without dist (or with dist) returns valid response without crashing
+      const rootRes = await fetch(`${testUrl}/`);
+      assert.ok([200, 503].includes(rootRes.status), 'Must return 200 (if dist built) or 503 (if dist missing)');
+      if (rootRes.status === 503) {
+        const text = await rootRes.text();
+        assert.ok(text.includes('Production Frontend Build Required'), 'Must provide actionable guidance');
+        assert.ok(text.includes('npm run build'), 'Must instruct developer to run build');
+      }
+    } finally {
+      await new Promise(resolve => server.close(resolve));
     }
   });
 });

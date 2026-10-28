@@ -1,16 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
-import RepoHeader from './components/RepoHeader';
-import RepoInput from './components/RepoInput';
 import AnalysisProgress from './components/AnalysisProgress';
-import OverviewTab from './components/Tabs/OverviewTab';
-import ArchitectureTab from './components/Tabs/ArchitectureTab';
 import ProjectMemoryTab from './components/Tabs/ProjectMemoryTab';
-import AskCodebaseTab from './components/Tabs/AskCodebaseTab';
 import CodeWhyExplorer from './components/CodeWhy/CodeWhyExplorer';
 import BenchmarkTab from './components/CodeWhy/BenchmarkTab';
 import { buildCompactAnalysisPayload } from './utils/analysisPayload';
-import { Database, GitBranch, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Database, ArrowRight } from 'lucide-react';
 
 const SESSION_ANALYSIS_KEY = 'codewhy_last_analysis';
 const SESSION_TAB_KEY = 'codewhy_active_tab';
@@ -183,7 +178,7 @@ export default function App() {
                   Interactive Architecture & Entity Provenance Graph
                 </h2>
                 <p className="text-xs sm:text-sm text-neutral-600 dark:text-[#8b949e]">
-                  Inspect Cypher-persisted files, AST functions, commits, issues, and ADR nodes stored in Neo4j Aura cloud.
+                  Inspect connected repository files, AST functions, commits, issues, and ADR nodes stored in the decision graph.
                 </p>
               </div>
 
@@ -224,7 +219,7 @@ export default function App() {
                     Explore Neo4j Knowledge Graph Slices
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-[#8b949e] max-w-md mx-auto">
-                    Select an indexed repository to inspect multi-hop Cypher nodes, commit relationships, and symbol dependencies stored in the database.
+                    Select an indexed repository to inspect multi-hop connected historical evidence, commit relationships, and technical decisions.
                   </p>
                 </div>
                 <div className="flex justify-center gap-3 pt-2">
@@ -273,15 +268,6 @@ export default function App() {
             <span>Graph Persistence: Neo4j Aura</span>
             <span>·</span>
             <span>Multilingual Voice: Sarvam AI</span>
-            <span>·</span>
-            <a
-              href="https://github.com/shubhamranswal/devlens-ai"
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-600 dark:text-[#58a6ff] hover:underline"
-            >
-              GitHub Source
-            </a>
           </div>
         </div>
       </footer>

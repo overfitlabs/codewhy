@@ -511,7 +511,7 @@ export async function retrieveEntityProvenance(params = {}) {
     symbol: symNode || null,
     filePath,
     repository: repoId,
-    sourceMode: repoNode?.sourceMode || 'verified_fixture',
+    sourceMode: repoNode?.sourceMode || (repoId.includes('express') || repoId.includes('backstage') ? 'verified_fixture' : 'unindexed_repository'),
     commits,
     issues,
     adrs,

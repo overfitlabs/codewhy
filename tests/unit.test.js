@@ -542,7 +542,7 @@ describe('Phase 6: Express API Regression & Health Check Protection', () => {
     assert.equal(healthRes.status, 200);
     const healthData = await healthRes.json();
     assert.equal(healthData.status, 'ok');
-    assert.equal(healthData.service, 'DevLens AI Analyzer');
+    assert.equal(healthData.service, 'CodeWhy Rationale Engine');
 
     const analyzeRes = await fetch(`${baseUrl}/api/analyze`, {
       method: 'POST',

@@ -24,6 +24,20 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+function getSourceOriginLabel(mode) {
+  if (mode === 'live_github') return 'Live GitHub sources';
+  if (mode === 'verified_fixture') return 'Verified demonstration evidence';
+  if (mode === 'unindexed_repository') return 'Repository not indexed';
+  return 'Source status unavailable';
+}
+
+function getSourceOriginBadgeClass(mode) {
+  if (mode === 'live_github') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300';
+  if (mode === 'verified_fixture') return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300';
+  if (mode === 'unindexed_repository') return 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300';
+  return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300';
+}
+
 export default function CodeWhyExplorer() {
   const [question, setQuestion] = useState('Why does lib/express.js export express.json directly while express.bodyParser throws an error?');
   const [repository, setRepository] = useState('expressjs/express');
@@ -516,7 +530,7 @@ export default function CodeWhyExplorer() {
           <form onSubmit={handleApplyCustomRepo} className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-3 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300">
-                Inspect Any GitHub Repository
+                Check Repository Indexing Status
               </span>
               <span className="text-[11px] text-neutral-500 dark:text-[#8b949e]">
                 Format: owner/repo or https://github.com/owner/repo
@@ -826,16 +840,17 @@ export default function CodeWhyExplorer() {
                   Confidence: {answerData.confidence}
                 </span>
 
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  answerData.sourceMode === 'live_github'
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
-                    : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300'
-                }`}>
-                  Origin: {answerData.sourceMode === 'live_github' ? 'Live GitHub API' : 'Verified Empirical Fixture'}
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getSourceOriginBadgeClass(answerData.sourceMode)}`}>
+                  Origin: {getSourceOriginLabel(answerData.sourceMode)}
                 </span>
               </div>
 
-              {answerData.epistemicValidation?.valid && (
+              {answerData.status !== 'UNINDEXED_REPOSITORY' &&
+               answerData.sourceMode !== 'unindexed_repository' &&
+               Array.isArray(answerData.citations) &&
+               answerData.citations.length > 0 &&
+               answerData.epistemicValidation?.valid &&
+               answerData.epistemicValidation?.claimSupportConfirmed && (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                   <ShieldCheck className="w-4 h-4" />
                   <span>Citations Verified (1:1 Graph & Claim-Support Validation)</span>
