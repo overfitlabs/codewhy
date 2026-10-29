@@ -61,21 +61,23 @@ class InMemoryGraphStore {
           id: node.id,
           type: 'commit',
           url: node.url,
+          title: node.title || (node.message ? node.message.split('\n')[0] : node.intent) || `Commit ${node.sha?.slice(0, 7)}`,
           author: node.author,
           timestamp: node.date,
-          citation: `Commit ${node.sha ? node.sha.slice(0, 7) : node.id} (${node.date?.split('T')[0]}): ${node.message?.split('\n')[0]}`,
+          citation: `Commit ${node.sha ? node.sha.slice(0, 7) : node.id} (${node.date?.split('T')[0] || 'undated'}): ${node.message?.split('\n')[0] || node.intent || ''}`,
           verbatimExcerpt: node.patchExcerpt || node.message || '',
-          fileLocation: { path: node.files?.[0] || 'lib/express.js' }
+          fileLocation: node.files?.[0] ? { path: node.files[0] } : (node.filePath ? { path: node.filePath } : null)
         });
       } else if (node.label === 'Issue') {
         records.push({
           id: node.id,
           type: 'issue',
           url: node.url,
+          title: node.title ? `Issue #${node.number}: ${node.title}` : `Issue #${node.number}`,
           author: node.author,
           timestamp: node.createdAt,
           citation: `Issue #${node.number}: ${node.title}`,
-          verbatimExcerpt: node.body ? node.body.slice(0, 300) : '',
+          verbatimExcerpt: node.verbatimExcerpt || (node.body ? node.body.slice(0, 300) : ''),
           fileLocation: null
         });
       } else if (node.label === 'Manifest') {
@@ -151,12 +153,26 @@ export async function ingestSliceToGraph(sliceData, options = {}) {
   const repoId = repository.id || `${repository.owner}/${repository.name}`;
   inMemoryGraph.addNode('Repository', repoId, { ...repository, sourceMode: sliceData.sourceMode || 'verified_fixture' });
 
-  const fileId = `${repoId}:${targetEntity.file}`;
-  inMemoryGraph.addNode('File', fileId, { path: targetEntity.file, repository: repoId });
+  const targetFile = targetEntity?.file || 'README.md';
+  const fileId = `${repoId}:${targetFile}`;
+  inMemoryGraph.addNode('File', fileId, { path: targetFile, repository: repoId });
   inMemoryGraph.addEdge(repoId, fileId, 'CONTAINS_FILE');
 
-  for (const sym of targetEntity.symbols) {
-    inMemoryGraph.addNode('Symbol', sym.id, { ...sym, filePath: targetEntity.file, repository: repoId });
+  // Ingest indexed repository files
+  for (const f of (sliceData.files || [])) {
+    const fid = f.id || `${repoId}:file:${f.path}`;
+    inMemoryGraph.addNode('File', fid, {
+      ...f,
+      id: fid,
+      path: f.path,
+      name: f.name || f.path.split('/').pop(),
+      repository: repoId
+    });
+    inMemoryGraph.addEdge(repoId, fid, 'CONTAINS_FILE');
+  }
+
+  for (const sym of (targetEntity?.symbols || [])) {
+    inMemoryGraph.addNode('Symbol', sym.id, { ...sym, filePath: targetFile, repository: repoId });
     inMemoryGraph.addEdge(sym.id, fileId, 'DEFINED_IN');
   }
 
@@ -240,11 +256,11 @@ export async function ingestSliceToGraph(sliceData, options = {}) {
          MERGE (f:File { id: $fileId })
          SET f.path = $filePath, f.repository = $repo.id
          MERGE (r)-[:CONTAINS_FILE]->(f)`,
-        { repo: repository, fileId, filePath: targetEntity.file }
+        { repo: repository, fileId, filePath: targetEntity?.file || 'README.md' }
       );
 
       // 2. Ingest Symbols
-      for (const sym of targetEntity.symbols) {
+      for (const sym of (targetEntity?.symbols || [])) {
         await runQuery(
           `MERGE (s:Symbol { id: $sym.id })
            SET s.name = $sym.name, s.kind = $sym.kind, s.lineStart = $sym.lineStart, s.lineEnd = $sym.lineEnd, s.code = $sym.code
@@ -323,12 +339,27 @@ export async function ingestSliceToGraph(sliceData, options = {}) {
         );
       }
 
+      // 9. Ingest Bounded Repository Files
+      for (const f of (sliceData.files || []).slice(0, 100)) {
+        const fid = f.id || `${repoId}:file:${f.path}`;
+        await runQuery(
+          `MERGE (f:File { id: $fid })
+           SET f.path = $f.path, f.name = $f.name, f.size = $f.size, f.repository = $repo.id
+           WITH f
+           MATCH (r:Repository { id: $repo.id })
+           MERGE (r)-[:CONTAINS_FILE]->(f)`,
+          { fid, f: { path: f.path, name: f.name || f.path.split('/').pop(), size: f.size || 0 }, repo: repository }
+        );
+      }
+
       neo4jResult = { ingested: true };
     } catch (err) {
       console.warn(`[CodeWhy] Live Neo4j write encountered an issue: ${err.message}. Operating in verified in-memory graph mode.`);
       neo4jResult = { ingested: false, error: err.message };
     }
   }
+
+  const allFileNodes = inMemoryGraph.findNodesByLabel('File').filter(f => f.repository === repoId || f.id.startsWith(`${repoId}:`));
 
   return {
     success: true,
@@ -339,13 +370,14 @@ export async function ingestSliceToGraph(sliceData, options = {}) {
     neo4jError: health.connected ? null : (health.errors?.[0] || 'Neo4j instance unreachable or unconfigured; using verified in-memory graph fallback.'),
     isPersistent: Boolean(neo4jResult.ingested),
     counts: {
-      symbols: targetEntity.symbols ? targetEntity.symbols.length : 0,
+      symbols: targetEntity?.symbols ? targetEntity.symbols.length : 0,
       commits: commits.length,
       issues: issues.length,
       adrs: adrs.length,
       pullRequests: pullRequests.length,
       decisions: decisions.length,
       manifests: manifestArtifacts.length,
+      files: allFileNodes.length,
       edges: inMemoryGraph.edges.length
     }
   };
@@ -366,7 +398,12 @@ export async function rehydrateFromNeo4j(repoId) {
     if (!repoRes || !repoRes.records || repoRes.records.length === 0) return false;
 
     const repoProps = repoRes.records[0].r || repoRes.records[0];
-    inMemoryGraph.addNode('Repository', repoId, repoProps);
+    inMemoryGraph.addNode('Repository', repoId, {
+      ...repoProps,
+      isDurable: true,
+      storageMode: 'neo4j_active',
+      storageLabel: 'Neo4j Persistent Graph'
+    });
 
     // Files & Symbols
     const filesRes = await runQuery(
@@ -495,28 +532,30 @@ export async function retrieveEntityProvenance(params = {}) {
   const targetSymbolId = `${repoId}:${filePath}:${symbol}`;
 
   const symNode = inMemoryGraph.getNode(targetSymbolId) || inMemoryGraph.findSymbolsByFile(filePath).find(s => s.name === symbol);
-  const commits = inMemoryGraph.findNodesByLabel('Commit').filter(c => !c.repository || c.repository === repoId);
-  const issues = inMemoryGraph.findNodesByLabel('Issue').filter(i => !i.repository || i.repository === repoId);
-  const adrs = inMemoryGraph.findNodesByLabel('ADR').filter(a => !a.repository || a.repository === repoId);
-  const pullRequests = inMemoryGraph.findNodesByLabel('PullRequest').filter(p => !p.repository || p.repository === repoId);
+  const commits = inMemoryGraph.findNodesByLabel('Commit').filter(c => c.repository === repoId || c.id?.startsWith(`${repoId}:`));
+  const issues = inMemoryGraph.findNodesByLabel('Issue').filter(i => i.repository === repoId || i.id?.startsWith(`${repoId}:`));
+  const adrs = inMemoryGraph.findNodesByLabel('ADR').filter(a => a.repository === repoId || a.id?.startsWith(`${repoId}:`));
+  const pullRequests = inMemoryGraph.findNodesByLabel('PullRequest').filter(p => p.repository === repoId || p.id?.startsWith(`${repoId}:`));
   const decisions = inMemoryGraph.findNodesByLabel('Decision').filter(d => {
     const repoShort = repoId.split('/')[1] || repoId;
-    return d.id.includes(repoShort);
+    return d.repository === repoId || d.id.startsWith(repoId) || d.id.includes(repoShort);
   });
 
   const evidenceRecords = inMemoryGraph.getEvidenceRecords().filter(r => r.id.startsWith(repoId));
+  const files = inMemoryGraph.findNodesByLabel('File').filter(f => f.repository === repoId || f.id?.startsWith(`${repoId}:`));
   const repoNode = inMemoryGraph.getNode(repoId);
 
   return {
     symbol: symNode || null,
     filePath,
     repository: repoId,
-    sourceMode: repoNode?.sourceMode || (repoId.includes('express') || repoId.includes('backstage') ? 'verified_fixture' : 'unindexed_repository'),
+    sourceMode: repoNode?.sourceMode || (commits.length > 0 || pullRequests.length > 0 || issues.length > 0 ? 'live_github' : (repoId.includes('express') || repoId.includes('backstage') ? 'verified_fixture' : 'unindexed_repository')),
     commits,
     issues,
     adrs,
     pullRequests,
     decisions,
+    files,
     evidenceRecords,
     evidenceMap: new Map(evidenceRecords.map(e => [e.id, e]))
   };

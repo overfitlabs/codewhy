@@ -21,7 +21,13 @@ import {
   VolumeX,
   Database,
   Terminal,
-  ArrowRight
+  ArrowRight,
+  GitPullRequest,
+  BookOpen,
+  Layers,
+  GitFork,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 function getSourceOriginLabel(mode) {
@@ -38,29 +44,112 @@ function getSourceOriginBadgeClass(mode) {
   return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300';
 }
 
-export default function CodeWhyExplorer() {
+export default function CodeWhyExplorer({ 
+  selectedRepository, 
+  repoStatusData,
+  isLoadingRepoStatus,
+  repoStatusError,
+  onSelectRepository, 
+  onNavigateToGraph,
+  onNavigateToBenchmark 
+}) {
   const [question, setQuestion] = useState('Why does lib/express.js export express.json directly while express.bodyParser throws an error?');
-  const [repository, setRepository] = useState('expressjs/express');
+  const [repository, setRepository] = useState(selectedRepository || 'expressjs/express');
   const [filePath, setFilePath] = useState('lib/express.js');
   const [symbol, setSymbol] = useState('exports.json');
   
   // Custom repository input state
-  const [customRepoInput, setCustomRepoInput] = useState('');
-  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customRepoInput, setCustomRepoInput] = useState(selectedRepository && selectedRepository !== 'expressjs/express' && selectedRepository !== 'backstage/backstage' ? selectedRepository : '');
+  const [isCustomMode, setIsCustomMode] = useState(Boolean(selectedRepository && selectedRepository !== 'expressjs/express' && selectedRepository !== 'backstage/backstage'));
   const [customRepoStatus, setCustomRepoStatus] = useState(null);
   const [isValidatingRepo, setIsValidatingRepo] = useState(false);
+
+  // Live indexing workflow state
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [indexingProgress, setIndexingProgress] = useState(0);
+  const [indexingStage, setIndexingStage] = useState('');
+  const [indexingCategories, setIndexingCategories] = useState(null);
+  const [indexingCounts, setIndexingCounts] = useState(null);
+  const [indexingError, setIndexingError] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [answerData, setAnswerData] = useState(null);
   const [error, setError] = useState(null);
   const [graphStatus, setGraphStatus] = useState(null);
-  const [selectedRepoTab, setSelectedRepoTab] = useState('expressjs/express');
-  const [activePreset, setActivePreset] = useState('express-body-parser-compromise');
+  const [selectedRepoTab, setSelectedRepoTab] = useState(
+    selectedRepository === 'backstage/backstage' ? 'backstage/backstage' : selectedRepository === 'expressjs/express' ? 'expressjs/express' : 'custom'
+  );
+  const [activePreset, setActivePreset] = useState(
+    selectedRepository === 'backstage/backstage' ? 'backstage-adr-fetch-supersession' : selectedRepository === 'expressjs/express' ? 'express-body-parser-compromise' : null
+  );
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [voiceNotice, setVoiceNotice] = useState(null);
   const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [expandedCitations, setExpandedCitations] = useState(new Set());
+
+  // Keep customRepoStatus in sync with shared repoStatusData from application shell
+  useEffect(() => {
+    if (repoStatusData) {
+      setCustomRepoStatus({
+        repository: repoStatusData.repository || selectedRepository,
+        indexed: Boolean(repoStatusData.isIndexed),
+        status: repoStatusData.status,
+        statusLabel: repoStatusData.statusLabel,
+        counts: repoStatusData.counts,
+        categories: repoStatusData.categories,
+        isDurable: repoStatusData.isDurable,
+        storageMode: repoStatusData.storageMode,
+        storageLabel: repoStatusData.storageLabel
+      });
+    }
+  }, [repoStatusData, selectedRepository]);
+
+  // Sync internal repository state when selectedRepository prop updates from parent
+  useEffect(() => {
+    if (selectedRepository && selectedRepository !== repository) {
+      setRepository(selectedRepository);
+      // Clean reset of previous answer & error on repo change to prevent stale data
+      setAnswerData(null);
+      setError(null);
+      setVoiceNotice(null);
+
+      if (selectedRepository === 'expressjs/express') {
+        setSelectedRepoTab('expressjs/express');
+        setIsCustomMode(false);
+        setActivePreset('express-body-parser-compromise');
+        setQuestion('Why does lib/express.js export express.json directly while express.bodyParser throws an error?');
+        setFilePath('lib/express.js');
+        setSymbol('exports.json');
+      } else if (selectedRepository === 'backstage/backstage') {
+        setSelectedRepoTab('backstage/backstage');
+        setIsCustomMode(false);
+        setActivePreset('backstage-adr-fetch-supersession');
+        setQuestion('Why was the node-fetch decision superseded by the native fetch decision in Backstage?');
+        setFilePath('docs/architecture-decisions/adr014-use-fetch.md');
+        setSymbol('ADR014');
+      } else {
+        setSelectedRepoTab('custom');
+        setIsCustomMode(true);
+        setActivePreset(null);
+        setCustomRepoInput(selectedRepository);
+        setQuestion(`Why was this architectural implementation chosen in ${selectedRepository}?`);
+        setFilePath('');
+        setSymbol('');
+      }
+    }
+  }, [selectedRepository]);
+
+  const toggleExpandCitation = (citId) => {
+    setExpandedCitations(prev => {
+      const next = new Set(prev);
+      if (next.has(citId)) next.delete(citId);
+      else next.add(citId);
+      return next;
+    });
+  };
+
 
   // Poll storage status on mount
   useEffect(() => {
@@ -313,6 +402,7 @@ export default function CodeWhyExplorer() {
       const q = 'Why does lib/express.js export express.json directly while express.bodyParser throws an error?';
       setQuestion(q);
       setRepository('expressjs/express');
+      if (onSelectRepository) onSelectRepository('expressjs/express');
       setFilePath('lib/express.js');
       setSymbol('exports.json');
       setSelectedRepoTab('expressjs/express');
@@ -322,6 +412,7 @@ export default function CodeWhyExplorer() {
       const q = 'Why did Express omit a multipart parser when re-adding express.json in 4.16.0?';
       setQuestion(q);
       setRepository('expressjs/express');
+      if (onSelectRepository) onSelectRepository('expressjs/express');
       setFilePath('lib/express.js');
       setSymbol('removedMiddlewares.multipart');
       setSelectedRepoTab('expressjs/express');
@@ -331,6 +422,7 @@ export default function CodeWhyExplorer() {
       const q = 'Why did Express switch from Mocha to Jest for its unit tests in Express 4.16.0?';
       setQuestion(q);
       setRepository('expressjs/express');
+      if (onSelectRepository) onSelectRepository('expressjs/express');
       setFilePath('package.json');
       setSymbol('scripts.test');
       setSelectedRepoTab('expressjs/express');
@@ -340,6 +432,7 @@ export default function CodeWhyExplorer() {
       const q = 'Why was the node-fetch decision superseded by the native fetch decision in Backstage?';
       setQuestion(q);
       setRepository('backstage/backstage');
+      if (onSelectRepository) onSelectRepository('backstage/backstage');
       setFilePath('docs/architecture-decisions/adr014-use-fetch.md');
       setSymbol('ADR014');
       setSelectedRepoTab('backstage/backstage');
@@ -349,6 +442,7 @@ export default function CodeWhyExplorer() {
       const q = 'What throughput or memory consumption benchmarks motivated Backstage to replace node-fetch with native fetch in ADR014?';
       setQuestion(q);
       setRepository('backstage/backstage');
+      if (onSelectRepository) onSelectRepository('backstage/backstage');
       setFilePath('docs/architecture-decisions/adr014-use-fetch.md');
       setSymbol('ADR014');
       setSelectedRepoTab('backstage/backstage');
@@ -364,6 +458,7 @@ export default function CodeWhyExplorer() {
     setAnswerData(null);
     setError(null);
     setVoiceNotice(null);
+    if (onSelectRepository) onSelectRepository(repoId);
 
     if (repoId === 'expressjs/express') {
       handleSelectPreset('express-body-parser-compromise');
@@ -394,6 +489,7 @@ export default function CodeWhyExplorer() {
       setCustomRepoStatus(statusData);
 
       setRepository(normalized);
+      if (onSelectRepository) onSelectRepository(normalized);
       setSelectedRepoTab('custom');
       setIsCustomMode(true);
       setActivePreset(null);
@@ -413,6 +509,102 @@ export default function CodeWhyExplorer() {
       setError(`Failed to check repository status: ${err.message}`);
     } finally {
       setIsValidatingRepo(false);
+    }
+  };
+
+  const handleIndexRepo = async (targetRepo, isReindex = false) => {
+    const repoToIdx = targetRepo || repository;
+    if (!repoToIdx) return;
+
+    setIsIndexing(true);
+    setIndexingProgress(15);
+    setIndexingStage('Connecting to GitHub API and validating repository...');
+    setIndexingError(null);
+    setError(null);
+    setIndexingCategories({
+      commits: { status: 'in_progress', count: 0 },
+      pullRequests: { status: 'pending', count: 0 },
+      issues: { status: 'pending', count: 0 },
+      adrs: { status: 'pending', count: 0 },
+      manifests: { status: 'pending', count: 0 }
+    });
+
+    const progressTimer = setInterval(() => {
+      setIndexingProgress(prev => {
+        if (prev < 35) {
+          setIndexingStage('Fetching recent commits and diffs...');
+          return prev + 10;
+        } else if (prev < 65) {
+          setIndexingStage('Ingesting pull request discussions and issues...');
+          return prev + 12;
+        } else if (prev < 85) {
+          setIndexingStage('Scanning architecture decision records (ADRs) and manifests...');
+          return prev + 8;
+        }
+        return prev;
+      });
+    }, 600);
+
+    try {
+      const res = await fetch('/api/v1/why-code/index-repository', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repository: repoToIdx,
+          forceReindex: isReindex,
+          commitLimit: 25,
+          prLimit: 15,
+          issueLimit: 15
+        })
+      });
+
+      clearInterval(progressTimer);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Indexing failed.');
+      }
+
+      setIndexingProgress(100);
+      setIndexingStage('Indexing complete! Evidence graph persisted.');
+      setIndexingCounts(data.counts);
+      setIndexingCategories(data.categories);
+
+      const statusObj = {
+        repository: data.repository,
+        indexed: true,
+        status: data.status || 'READY',
+        statusLabel: 'Indexed & Provenance Ready',
+        isIndexed: true,
+        isDurable: Boolean(data.isDurable),
+        storageMode: data.storageMode || 'neo4j_active',
+        storageLabel: data.storageLabel || 'Neo4j Persistent Graph',
+        counts: data.counts,
+        categories: data.categories,
+        lastIndexedAt: new Date().toISOString()
+      };
+      setCustomRepoStatus(statusObj);
+      if (onSelectRepository) {
+        onSelectRepository(data.repository, { statusData: statusObj });
+      }
+
+      // Refresh global graph status
+      fetch('/api/v1/evidence/status')
+        .then(r => r.json())
+        .then(d => setGraphStatus(d))
+        .catch(() => {});
+
+      // Automatically investigate query with indexed repository evidence
+      if (question && question.trim()) {
+        handleInvestigate(question.trim(), data.repository, '', '');
+      }
+    } catch (err) {
+      clearInterval(progressTimer);
+      setIndexingError(err.message);
+      setIndexingProgress(0);
+      setIndexingStage(`Indexing failed: ${err.message}`);
+    } finally {
+      setIsIndexing(false);
     }
   };
 
@@ -553,17 +745,128 @@ export default function CodeWhyExplorer() {
                 <span>Set Repository</span>
               </button>
             </div>
-            {customRepoStatus && (
-              <div className="p-2.5 rounded-lg bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#30363d] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${customRepoStatus.indexed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                  <span className="font-semibold text-neutral-900 dark:text-[#f0f6fc]">{customRepoStatus.repository}</span>
-                  <span className="text-neutral-500 dark:text-[#8b949e]">· {customRepoStatus.statusLabel}</span>
-                </div>
-                {!customRepoStatus.indexed && (
-                  <span className="text-[11px] text-neutral-500 dark:text-[#8b949e]">
-                    Repository not yet indexed
+            {/* Indexing Progress Card */}
+            {isIndexing && (
+              <div className="p-3.5 rounded-lg bg-white dark:bg-[#161b22] border border-indigo-200 dark:border-indigo-900/60 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
+                    <span>{indexingStage || 'Ingesting repository engineering evidence...'}</span>
                   </span>
+                  <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">{indexingProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-indigo-600 rounded-full transition-all duration-300" 
+                    style={{ width: `${indexingProgress}%` }}
+                  />
+                </div>
+                {/* Source Category Status Indicators */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50 flex items-center gap-1">
+                    <GitCommit className="w-3 h-3 text-blue-500" /> Commits & Diffs
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/50 flex items-center gap-1">
+                    <GitPullRequest className="w-3 h-3 text-purple-500" /> Pull Requests
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50 flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3 text-amber-500" /> Issues
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                    <BookOpen className="w-3 h-3 text-emerald-500" /> ADRs
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-neutral-100 dark:bg-[#21262d] text-neutral-600 dark:text-[#8b949e] border border-neutral-200 dark:border-[#30363d] flex items-center gap-1">
+                    <Layers className="w-3 h-3 text-neutral-500" /> Manifests
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Indexing Error Banner */}
+            {indexingError && !isIndexing && (
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-800 dark:text-red-300 text-xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{indexingError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleIndexRepo(customRepoStatus?.repository || customRepoInput, true)}
+                  className="px-2.5 py-1 rounded bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Custom Repo Status & Trigger Card */}
+            {customRepoStatus && !isIndexing && (
+              <div className="p-3.5 rounded-lg bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#30363d] space-y-2.5 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${customRepoStatus.indexed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                    <span className="font-bold text-neutral-900 dark:text-[#f0f6fc]">{customRepoStatus.repository}</span>
+                    <span className="text-neutral-500 dark:text-[#8b949e]">· {customRepoStatus.statusLabel}</span>
+                  </div>
+
+                  {customRepoStatus.indexed ? (
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                      {onNavigateToGraph && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToGraph(customRepoStatus.repository)}
+                          className="px-3 py-1 rounded-md text-[11px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                        >
+                          <GitFork className="w-3.5 h-3.5" />
+                          <span>Open in Decision Graph</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleIndexRepo(customRepoStatus.repository, true)}
+                        className="px-2.5 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-[#30363d] hover:bg-neutral-50 dark:hover:bg-[#21262d] text-neutral-700 dark:text-[#c9d1d9] flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3 h-3 text-neutral-500" />
+                        <span>Re-index Repository</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleIndexRepo(customRepoStatus.repository)}
+                      className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs flex items-center gap-1.5 self-start sm:self-auto"
+                    >
+                      <GitCommit className="w-3.5 h-3.5" />
+                      <span>Index Repository Evidence</span>
+                    </button>
+                  )}
+                </div>
+
+                {customRepoStatus.indexed ? (
+                  <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-neutral-600 dark:text-[#8b949e]">
+                    {customRepoStatus.counts && (
+                      <div className="flex items-center gap-2 font-mono">
+                        <span>{customRepoStatus.counts.commits || 0} commits</span>
+                        <span>•</span>
+                        <span>{customRepoStatus.counts.pullRequests || 0} PRs</span>
+                        <span>•</span>
+                        <span>{customRepoStatus.counts.issues || 0} issues</span>
+                        {customRepoStatus.counts.adrs > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{customRepoStatus.counts.adrs} ADRs</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-neutral-100 dark:bg-[#21262d] border border-neutral-200 dark:border-[#30363d] text-neutral-700 dark:text-[#c9d1d9]">
+                      {customRepoStatus.storageLabel || 'In-Memory Store (Non-durable)'}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-neutral-500 dark:text-[#8b949e] leading-relaxed">
+                    Repository has not yet been indexed. Click &quot;Index Repository Evidence&quot; to fetch bounded commits, PRs, issues, and ADRs through the GitHub API into the graph.
+                  </p>
                 )}
               </div>
             )}
@@ -779,7 +1082,7 @@ export default function CodeWhyExplorer() {
       {/* Main Results Display */}
       {answerData && !isLoading && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Unindexed Repository Notice */}
+          {/* Unindexed Repository Notice with Direct Indexing Action */}
           {answerData.status === 'UNINDEXED_REPOSITORY' && (
             <div className="p-6 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm space-y-4">
               <div className="flex items-center gap-2.5 text-neutral-900 dark:text-[#f0f6fc] font-bold text-base">
@@ -787,31 +1090,59 @@ export default function CodeWhyExplorer() {
                 <span>Repository Not Yet Indexed</span>
               </div>
               <p className="text-xs sm:text-sm text-neutral-700 dark:text-[#c9d1d9] leading-relaxed">
-                This repository has not been indexed for historical investigation. To explain why code exists in its current form, CodeWhy requires primary historical evidence—including commit diffs, pull request discussions, issue consensus, and Architecture Decision Records (ADRs).
+                Repository <code className="font-mono font-bold text-neutral-900 dark:text-[#f0f6fc]">{answerData.repository}</code> has not been indexed for historical investigation. To explain why code exists in its current form, CodeWhy requires primary historical evidence—including commit diffs, pull request discussions, issue consensus, and Architecture Decision Records (ADRs).
               </p>
-              <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#0d1117] border border-neutral-200 dark:border-[#30363d] space-y-2 text-xs">
-                <p className="font-semibold text-neutral-900 dark:text-[#f0f6fc]">Current Version Scope</p>
-                <p className="text-neutral-600 dark:text-[#8b949e] leading-relaxed">
-                  In this demonstration release, full multi-hop decision graphs and verified historical evidence slices are active for <span className="font-medium text-neutral-900 dark:text-[#f0f6fc]">Express.js</span> and <span className="font-medium text-neutral-900 dark:text-[#f0f6fc]">Backstage</span>. Select one of the verified demonstrations below to explore historical provenance:
+
+              {/* Live Indexing Action Box */}
+              <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                    <span>General-Purpose Evidence Indexing</span>
+                  </span>
+                  <span className="text-[11px] text-neutral-500 dark:text-[#8b949e]">
+                    Bounded ingestion: Commits, PRs, Issues, ADRs
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-600 dark:text-[#8b949e]">
+                  Index this repository to fetch recent commits, diffs, pull request rationale, closed issues, and ADR documents through the GitHub API into the graph.
                 </p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleIndexRepo(answerData.repository)}
+                    disabled={isIndexing}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {isIndexing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <GitCommit className="w-3.5 h-3.5" />}
+                    <span>{isIndexing ? 'Indexing in Progress...' : `Index ${answerData.repository} Evidence Now`}</span>
+                  </button>
+                </div>
               </div>
-              <div className="pt-2 flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleSwitchRepoTab('expressjs/express')}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
-                >
-                  <span>Explore Express.js (Scoped Compromise)</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchRepoTab('backstage/backstage')}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
-                >
-                  <span>Explore Backstage (ADR Supersession)</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+
+              <div className="p-4 rounded-xl bg-neutral-50 dark:bg-[#0d1117] border border-neutral-200 dark:border-[#30363d] space-y-2 text-xs">
+                <p className="font-semibold text-neutral-900 dark:text-[#f0f6fc]">Verified Demonstration Presets</p>
+                <p className="text-neutral-600 dark:text-[#8b949e] leading-relaxed">
+                  Alternatively, explore one of the frozen multi-hop decision graphs and verified historical evidence slices:
+                </p>
+                <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchRepoTab('expressjs/express')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#21262d] border border-neutral-200 dark:border-[#30363d] text-neutral-700 dark:text-[#c9d1d9] hover:bg-neutral-100 dark:hover:bg-[#30363d] shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Explore Express.js (Scoped Compromise)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchRepoTab('backstage/backstage')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#21262d] border border-neutral-200 dark:border-[#30363d] text-neutral-700 dark:text-[#c9d1d9] hover:bg-neutral-100 dark:hover:bg-[#30363d] shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Explore Backstage (ADR Supersession)</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -819,7 +1150,7 @@ export default function CodeWhyExplorer() {
           {/* Answer Card Top Header (For all answered or abstained queries) */}
           <div className="p-6 rounded-xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 dark:border-[#21262d] pb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   answerData.status === 'ANSWERED' 
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
@@ -845,17 +1176,30 @@ export default function CodeWhyExplorer() {
                 </span>
               </div>
 
-              {answerData.status !== 'UNINDEXED_REPOSITORY' &&
-               answerData.sourceMode !== 'unindexed_repository' &&
-               Array.isArray(answerData.citations) &&
-               answerData.citations.length > 0 &&
-               answerData.epistemicValidation?.valid &&
-               answerData.epistemicValidation?.claimSupportConfirmed && (
-                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Citations Verified (1:1 Graph & Claim-Support Validation)</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {onNavigateToGraph && answerData.status !== 'UNINDEXED_REPOSITORY' && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateToGraph(repository)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center gap-1.5 shadow-xs shrink-0"
+                  >
+                    <GitFork className="w-3.5 h-3.5" />
+                    <span>Explore in Decision Graph</span>
+                  </button>
+                )}
+
+                {answerData.status !== 'UNINDEXED_REPOSITORY' &&
+                 answerData.sourceMode !== 'unindexed_repository' &&
+                 Array.isArray(answerData.citations) &&
+                 answerData.citations.length > 0 &&
+                 answerData.epistemicValidation?.valid &&
+                 answerData.epistemicValidation?.claimSupportConfirmed && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Citations Verified (Claim-Level Validation)</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Short Answer */}
@@ -887,22 +1231,73 @@ export default function CodeWhyExplorer() {
               </p>
             </div>
 
-            {/* Premise Contradicted Notice */}
+            {/* Abstention & Contradicted Premise Display */}
             {(answerData.status === 'PREMISE_CONTRADICTED' || answerData.status === 'ABSTAIN') && (
-              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-2">
-                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold text-sm">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>Why CodeWhy Declined to Speculate</span>
+              <div className="p-5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>
+                      {answerData.status === 'PREMISE_CONTRADICTED'
+                        ? 'Contradicted Premise Detected'
+                        : 'Documented Maintainer Rationale Unavailable in Indexed Evidence'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-200/60 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200">
+                    Abstention Mode: Active
+                  </span>
                 </div>
-                <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
-                  {answerData.abstentionReason}
-                </p>
-                {answerData.searchedEntities && (
-                  <div className="pt-2 text-xs text-amber-800/80 dark:text-amber-300/80">
-                    <span className="font-medium">Artifacts Inspected: </span>
-                    <span>{answerData.searchedEntities.join(' · ')}</span>
+
+                <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-100 leading-relaxed space-y-1.5">
+                  <p className="font-medium">
+                    {answerData.abstentionReason}
+                  </p>
+                  <p className="text-xs text-amber-800/90 dark:text-amber-300/80">
+                    {answerData.status === 'PREMISE_CONTRADICTED'
+                      ? 'The query assumes a historical event or technical migration that the repository’s documentary evidence directly refutes.'
+                      : 'While repository records were sampled and inspected, they do not record the maintainers’ causal reasoning or design consensus for this question. CodeWhy strictly requires primary engineering evidence and abstains from fabricating hypotheses.'}
+                  </p>
+                </div>
+
+                {/* Inspected Records Sample (Clean human-readable list, never raw JSON) */}
+                {Array.isArray(answerData.searchedEntities) && answerData.searchedEntities.length > 0 && (
+                  <div className="pt-2 border-t border-amber-200/80 dark:border-amber-900/40 space-y-1.5">
+                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-200">
+                      Sampled Records Inspected:
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      {answerData.searchedEntities.map((ent, i) => (
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-white dark:bg-[#161b22] border border-amber-300/80 dark:border-amber-800/60 text-neutral-800 dark:text-[#c9d1d9] shadow-2xs"
+                        >
+                          {ent}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Actionable Next Steps */}
+                <div className="p-3 rounded-lg bg-white/70 dark:bg-[#161b22]/70 border border-amber-200 dark:border-amber-900/40 space-y-1.5 text-xs text-neutral-700 dark:text-[#8b949e]">
+                  <span className="font-bold text-neutral-900 dark:text-[#f0f6fc]">Recommended Developer Next Steps:</span>
+                  <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                    <li>Try querying a specific file path or symbol (e.g. <code>package.json</code> or a core module).</li>
+                    <li>If this choice was discussed in a specific pull request or issue, verify if that issue number falls within the indexed slice.</li>
+                    {onNavigateToGraph && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToGraph(repository)}
+                          className="text-blue-600 dark:text-[#58a6ff] hover:underline font-medium inline-flex items-center gap-1"
+                        >
+                          <span>Explore connected entities in Decision Graph</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
               </div>
             )}
 
@@ -911,7 +1306,7 @@ export default function CodeWhyExplorer() {
               <div className="p-4 rounded-lg bg-neutral-50 dark:bg-[#0d1117] border border-neutral-200 dark:border-[#21262d] space-y-2 text-xs">
                 <div className="flex items-center gap-1.5 font-semibold text-neutral-800 dark:text-[#c9d1d9]">
                   <Scale className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Epistemic Discipline: Facts vs Maintainer Rationale vs Security Misconceptions</span>
+                  <span>Engineering Evidence Breakdown: Implementation Facts vs Maintainer Intent</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-neutral-600 dark:text-[#8b949e]">
                   <div>
@@ -1103,58 +1498,120 @@ export default function CodeWhyExplorer() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {answerData.citations.map((cit) => (
-                  <div
-                    key={cit.id}
-                    className="p-4 rounded-lg border border-neutral-200 dark:border-[#30363d] bg-neutral-50 dark:bg-[#0d1117] space-y-2 flex flex-col justify-between"
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold ${
-                          cit.type === 'adr'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                            : cit.type === 'pull_request'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                            : cit.type === 'commit'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                            : cit.type === 'issue'
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                            : 'bg-neutral-200 dark:bg-[#21262d] text-neutral-700 dark:text-[#c9d1d9]'
-                        }`}>
-                          {cit.type === 'adr' ? 'ADR Record' : cit.type === 'pull_request' ? 'Pull Request' : cit.type}
-                        </span>
-                        <span className="text-[11px] font-mono text-neutral-400 dark:text-[#6e7681]">
-                          {cit.timestamp?.split('T')[0]}
-                        </span>
-                      </div>
+                {answerData.citations.map((cit) => {
+                  const isExpanded = expandedCitations.has(cit.id);
+                  const excerpt = (cit.verbatimExcerpt || '').trim();
+                  const isLong = excerpt.length > 220;
+                  const displayExcerpt = isExpanded || !isLong ? excerpt : excerpt.slice(0, 200) + '...';
 
-                      <h5 className="text-xs font-semibold text-neutral-900 dark:text-[#f0f6fc] line-clamp-2">
-                        {cit.title}
-                      </h5>
-
-                      <p className="text-[11px] text-neutral-500 dark:text-[#8b949e]">
-                        Author: <span className="font-medium text-neutral-700 dark:text-[#c9d1d9]">{cit.author}</span>
-                      </p>
-
-                      <div className="p-2 rounded bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#21262d] font-mono text-[11px] text-neutral-700 dark:text-[#8b949e] overflow-x-auto max-h-28">
-                        <pre className="whitespace-pre-wrap">{cit.verbatimExcerpt}</pre>
-                      </div>
-                    </div>
-
-                    <a
-                      href={cit.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="pt-2 text-xs font-medium text-blue-600 dark:text-[#58a6ff] hover:underline flex items-center gap-1"
+                  return (
+                    <div
+                      key={cit.id}
+                      className="p-4 rounded-lg border border-neutral-200 dark:border-[#30363d] bg-neutral-50 dark:bg-[#0d1117] space-y-2 flex flex-col justify-between"
                     >
-                      <span>View GitHub Artifact</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                ))}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold ${
+                            cit.type === 'adr'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/80 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                              : cit.type === 'pull_request'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : cit.type === 'commit'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              : cit.type === 'issue'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                              : cit.type === 'manifest'
+                              ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/80 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800'
+                              : 'bg-neutral-200 dark:bg-[#21262d] text-neutral-700 dark:text-[#c9d1d9]'
+                          }`}>
+                            {cit.type === 'adr' ? 'ADR Record' : cit.type === 'pull_request' ? 'Pull Request' : cit.type === 'manifest' ? 'Manifest' : cit.type === 'commit' ? 'Commit' : cit.type === 'issue' ? 'Issue' : cit.type}
+                          </span>
+                          <span className="text-[11px] font-mono text-neutral-400 dark:text-[#6e7681]">
+                            {cit.timestamp?.split('T')[0] || 'Historical'}
+                          </span>
+                        </div>
+
+                        <h5 className="text-xs font-semibold text-neutral-900 dark:text-[#f0f6fc] line-clamp-2">
+                          {cit.title}
+                        </h5>
+
+                        <p className="text-[11px] text-neutral-500 dark:text-[#8b949e]">
+                          Author: <span className="font-medium text-neutral-700 dark:text-[#c9d1d9]">{cit.author || 'Maintainers'}</span>
+                        </p>
+
+                        <div className="p-2.5 rounded bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#21262d] font-mono text-[11px] text-neutral-700 dark:text-[#8b949e]">
+                          <pre className="whitespace-pre-wrap font-mono leading-relaxed">{displayExcerpt}</pre>
+                          {isLong && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandCitation(cit.id)}
+                              className="text-[10px] text-blue-600 dark:text-[#58a6ff] hover:underline font-semibold mt-1.5 flex items-center gap-0.5"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <span>Collapse excerpt</span>
+                                  <ChevronUp className="w-3 h-3" />
+                                </>
+                              ) : (
+                                <>
+                                  <span>Show full excerpt ({excerpt.length} chars)</span>
+                                  <ChevronDown className="w-3 h-3" />
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {cit.url && cit.url.startsWith('https://') && (
+                        <a
+                          href={cit.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="pt-2 text-xs font-medium text-blue-600 dark:text-[#58a6ff] hover:underline flex items-center gap-1"
+                        >
+                          <span>View GitHub Artifact</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
+
+          {/* Collapsible Technical Verification & Graph Provenance Details */}
+          <details className="p-4 rounded-xl border border-neutral-200 dark:border-[#30363d] bg-neutral-50/60 dark:bg-[#161b22]/50 text-xs text-neutral-600 dark:text-[#8b949e]">
+            <summary className="font-semibold text-neutral-800 dark:text-[#c9d1d9] cursor-pointer hover:text-blue-600 dark:hover:text-[#58a6ff] flex items-center justify-between select-none">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>Technical Verification & Graph Provenance Details</span>
+              </div>
+              <span className="text-[11px] font-normal text-neutral-400">Click to expand diagnostics</span>
+            </summary>
+            <div className="pt-3 mt-3 border-t border-neutral-200 dark:border-[#21262d] space-y-3 font-mono text-[11px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-neutral-700 dark:text-[#c9d1d9]">
+                <div><span className="text-neutral-500">Repository Scoped:</span> {answerData.repository}</div>
+                <div><span className="text-neutral-500">Source Mode:</span> {answerData.sourceMode}</div>
+                <div><span className="text-neutral-500">Storage Mode:</span> {answerData.storageMode}</div>
+                <div><span className="text-neutral-500">Claim-Level Verified:</span> {answerData.epistemicValidation?.claimSupportConfirmed ? 'Yes (Strict 1:1 Grounding)' : 'Pending / Abstained'}</div>
+              </div>
+              {answerData.epistemicValidation?.checks && (
+                <div className="p-2.5 rounded bg-white dark:bg-[#0d1117] border border-neutral-200 dark:border-[#21262d] space-y-1">
+                  <span className="text-neutral-500 font-sans font-bold">Rule Evaluation Checks:</span>
+                  <ul className="space-y-0.5">
+                    {Object.entries(answerData.epistemicValidation.checks).map(([chk, pass]) => (
+                      <li key={chk} className="flex items-center gap-1.5">
+                        <span className={pass ? 'text-emerald-500' : 'text-amber-500'}>{pass ? '✓' : '✗'}</span>
+                        <span>{chk}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
         </div>
       )}
     </div>

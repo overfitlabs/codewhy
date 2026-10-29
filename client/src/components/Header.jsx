@@ -6,7 +6,9 @@ export default function Header({
   onToggleTheme, 
   activeTab = 'codewhy',
   onSelectTab,
-  graphStatus
+  graphStatus,
+  selectedRepository,
+  repoStatusData
 }) {
   return (
     <header className="border-b border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] sticky top-0 z-50 shadow-xs">
@@ -19,8 +21,16 @@ export default function Header({
             className="flex items-center gap-2.5 hover:opacity-90 transition-opacity focus:outline-none text-left"
             title="CodeWhy - Why The Code Is Like This"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-1 ring-white/20">
-              CW
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#30363d] shadow-xs shrink-0">
+              <img 
+                src="/codewhy.png" 
+                alt="CodeWhy" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentNode.innerText = 'CW';
+                }}
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -85,8 +95,22 @@ export default function Header({
           </button>
         </nav>
 
-        {/* Right Tools: Storage Diagnostics, Theme Toggle, GitHub */}
+        {/* Right Tools: Active Repository Indicator, Storage Diagnostics, Theme Toggle */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Unified Active Repository Context Pill */}
+          {selectedRepository && (
+            <div 
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-[#30363d] bg-neutral-50 dark:bg-[#21262d] text-xs font-mono text-neutral-700 dark:text-[#c9d1d9]"
+              title={`Shared Active Repository: ${selectedRepository} (${repoStatusData?.isIndexed ? 'Indexed & Ready' : 'Unindexed'})`}
+            >
+              <span className={`w-2 h-2 rounded-full ${repoStatusData?.isIndexed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="text-neutral-400 dark:text-[#8b949e] font-sans text-[11px]">Repo:</span>
+              <span className="font-semibold text-neutral-800 dark:text-[#f0f6fc] max-w-[130px] truncate">
+                {selectedRepository}
+              </span>
+            </div>
+          )}
+
           {/* Transparent Storage Badge */}
           <div 
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-[#30363d] bg-neutral-50 dark:bg-[#21262d] text-xs font-mono text-neutral-700 dark:text-[#c9d1d9]"

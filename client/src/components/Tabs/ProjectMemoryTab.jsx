@@ -109,6 +109,41 @@ const NODE_STYLES = {
     text: 'text-teal-700 dark:text-teal-300',
     dot: '#14b8a6',
     radius: 13
+  },
+  Decision: {
+    bg: 'bg-amber-50 dark:bg-amber-950/40',
+    border: 'border-amber-300 dark:border-amber-800',
+    text: 'text-amber-700 dark:text-amber-400',
+    dot: '#f59e0b',
+    radius: 15
+  },
+  PullRequest: {
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+    border: 'border-emerald-300 dark:border-emerald-800',
+    text: 'text-emerald-700 dark:text-[#3fb950]',
+    dot: '#10b981',
+    radius: 14
+  },
+  Issue: {
+    bg: 'bg-amber-50 dark:bg-amber-950/40',
+    border: 'border-amber-300 dark:border-amber-800',
+    text: 'text-amber-700 dark:text-amber-400',
+    dot: '#f59e0b',
+    radius: 14
+  },
+  ADR: {
+    bg: 'bg-purple-50 dark:bg-purple-950/40',
+    border: 'border-purple-300 dark:border-purple-800',
+    text: 'text-purple-700 dark:text-purple-300',
+    dot: '#8b5cf6',
+    radius: 15
+  },
+  Manifest: {
+    bg: 'bg-cyan-50 dark:bg-cyan-950/40',
+    border: 'border-cyan-300 dark:border-cyan-800',
+    text: 'text-cyan-700 dark:text-cyan-300',
+    dot: '#06b6d4',
+    radius: 14
   }
 };
 
@@ -215,6 +250,7 @@ function FileTreeItem({ node, depth = 0, filterText = '', onSelectTreeNode, sele
 }
 
 export default function ProjectMemoryTab({
+  repository,
   analysisData,
   memoryOverview,
   isLoadingMemory,
@@ -259,7 +295,7 @@ export default function ProjectMemoryTab({
   // Bottom memory cards filter
   const [cardFilter, setCardFilter] = useState('all');
 
-  const repoFullName = analysisData?.repository?.fullName || '';
+  const repoFullName = repository || analysisData?.repository?.fullName || memoryOverview?.repoFullName || '';
   const isConnected = Boolean(memoryOverview?.connected && memoryOverview?.status === 'connected');
   const isConfigured = Boolean(
     memoryOverview?.configured ?? analysisData?.projectMemory?.status !== 'unconfigured'
@@ -273,6 +309,10 @@ export default function ProjectMemoryTab({
     bugs: memoryOverview?.bugsAndFixes?.length || 0,
     fixes: memoryOverview?.bugsAndFixes?.filter(b => b.fixSummary)?.length || 0,
     commits: memoryOverview?.recentCommits?.length || 0,
+    pullRequests: memoryOverview?.pullRequests?.length || 0,
+    issues: memoryOverview?.issues?.length || 0,
+    adrs: memoryOverview?.adrs?.length || 0,
+    manifests: memoryOverview?.manifests?.length || 0,
     relationships: 0
   };
 
@@ -283,6 +323,79 @@ export default function ProjectMemoryTab({
     const defaults = ['server', 'client', 'api', 'services', 'root'];
     return Array.from(new Set([...dirs, ...defaults]));
   }, [analysisData]);
+
+  // Extract structured files list from memoryOverview, graph nodes, or analysisData
+  const filesList = useMemo(() => {
+    if (Array.isArray(memoryOverview?.files) && memoryOverview.files.length > 0) {
+      return memoryOverview.files;
+    }
+    const nodes = memoryOverview?.graph?.nodes || [];
+    const fileNodes = nodes.filter(n => (n.label === 'File' || n.type === 'File') && (n.title || n.details?.path));
+    if (fileNodes.length > 0) {
+      return fileNodes.map(n => ({
+        path: n.details?.path || n.title,
+        name: n.details?.name || (n.details?.path || n.title).split('/').pop(),
+        size: n.details?.size || 0,
+        url: n.details?.url
+      }));
+    }
+    const paths = analysisData?.aiContextReady?.filePaths || [];
+    if (paths.length > 0) {
+      return paths.map(p => ({
+        path: p,
+        name: p.split('/').pop(),
+        size: 0
+      }));
+    }
+    return [];
+  }, [memoryOverview, analysisData]);
+
+  const totalFiles = filesList.length || counts.files || analysisData?.metrics?.totalFiles || 0;
+
+  // Build tree structure from filesList if analysisData tree is absent
+  const builtFileTree = useMemo(() => {
+    if (analysisData?.structure?.tree && analysisData.structure.tree.length > 0) {
+      return analysisData.structure.tree;
+    }
+    if (filesList.length === 0) return [];
+
+    const rootDirs = new Map();
+    const rootFiles = [];
+
+    for (const f of filesList) {
+      const p = f.path || '';
+      const parts = p.split('/');
+      if (parts.length === 1) {
+        rootFiles.push({
+          name: f.name || parts[0],
+          path: p,
+          type: 'file',
+          size: f.size || 0
+        });
+      } else {
+        const topDir = parts[0];
+        if (!rootDirs.has(topDir)) {
+          rootDirs.set(topDir, {
+            name: topDir,
+            path: topDir,
+            type: 'directory',
+            fileCount: 0,
+            children: []
+          });
+        }
+        const dir = rootDirs.get(topDir);
+        dir.fileCount++;
+        dir.children.push({
+          name: f.name || parts.slice(1).join('/'),
+          path: p,
+          type: 'file',
+          size: f.size || 0
+        });
+      }
+    }
+
+    return [...Array.from(rootDirs.values()), ...rootFiles];
+  }, [analysisData?.structure?.tree, filesList]);
 
   // Build fallback Repository node if Neo4j is disconnected or empty so the inspector always has honest repository context
   const rawGraphNodes = useMemo(() => {
@@ -301,11 +414,11 @@ export default function ProjectMemoryTab({
           fullName: repoFullName,
           primaryLanguage: analysisData?.repository?.primaryLanguage || 'Unknown',
           pattern: analysisData?.architecture?.pattern || 'Standard',
-          totalFiles: analysisData?.metrics?.totalFiles || 0
+          totalFiles: totalFiles
         }
       }
     ];
-  }, [memoryOverview, repoFullName, analysisData]);
+  }, [memoryOverview, repoFullName, analysisData, totalFiles]);
 
   const rawGraphEdges = memoryOverview?.graph?.edges || [];
 
@@ -337,56 +450,67 @@ export default function ProjectMemoryTab({
     return { nodes: matchingNodes, edges: matchingEdges };
   }, [rawGraphNodes, rawGraphEdges, graphSearch, nodeTypeFilter]);
 
-  // Compute deterministic concentric multi-ring layout for the interactive SVG Graph Explorer
+  // Compute collision-free, organic force-directed layout for the interactive SVG Graph Explorer
   const positionedGraph = useMemo(() => {
     const nodes = filteredGraphData.nodes.slice(0, 36);
-    if (nodes.length === 0) return { nodes: [], edges: [] };
+    if (nodes.length === 0) return { nodes: [], edges: [], nodeById: new Map() };
 
-    const width = 760;
-    const height = 480;
+    const width = 800;
+    const height = 520;
     const centerX = width / 2;
     const centerY = height / 2;
 
-    const ring1 = []; // Components
-    const ring2 = []; // Files, Decisions, Bugs, Commits
-    const ring3 = []; // Functions, Classes, Fixes, Tests
-    let repoNode = null;
+    const repoNode = nodes.find(n => (n.label || n.type) === 'Repository');
+    const otherNodes = nodes.filter(n => n !== repoNode);
 
-    for (const n of nodes) {
-      const lbl = n.label || n.type;
-      if (lbl === 'Repository' && !repoNode) {
-        repoNode = n;
-      } else if (lbl === 'Component') {
-        ring1.push(n);
-      } else if (lbl === 'File' || lbl === 'TechnicalDecision' || lbl === 'Bug' || lbl === 'Commit') {
-        ring2.push(n);
-      } else {
-        ring3.push(n);
-      }
-    }
-
-    const positioned = [];
+    const simNodes = [];
     if (repoNode) {
-      positioned.push({ ...repoNode, x: centerX, y: centerY });
+      simNodes.push({
+        ...repoNode,
+        x: centerX,
+        y: centerY,
+        vx: 0,
+        vy: 0,
+        radius: 28,
+        isFixed: true
+      });
     }
 
-    const placeRing = (items, rx, ry, angleOffset = 0) => {
-      items.forEach((item, idx) => {
-        const angle = angleOffset + (2 * Math.PI * idx) / Math.max(items.length, 1);
-        positioned.push({
-          ...item,
-          x: Math.round(centerX + Math.cos(angle) * rx),
-          y: Math.round(centerY + Math.sin(angle) * ry)
-        });
-      });
+    // Cluster types radially around center
+    const groupAngles = {
+      Component: 0,
+      File: Math.PI / 4,
+      Commit: Math.PI / 2,
+      PullRequest: (3 * Math.PI) / 4,
+      Issue: Math.PI,
+      ADR: (5 * Math.PI) / 4,
+      TechnicalDecision: (3 * Math.PI) / 2,
+      Decision: (3 * Math.PI) / 2,
+      Bug: (7 * Math.PI) / 4,
+      Fix: 1.85 * Math.PI,
+      Symbol: 0.5 * Math.PI
     };
 
-    placeRing(ring1, 125, 85, 0.15);
-    placeRing(ring2, 235, 155, 0.45);
-    placeRing(ring3, 330, 210, 0.8);
+    otherNodes.forEach((node, i) => {
+      const lbl = node.label || node.type || 'Other';
+      const baseAngle = groupAngles[lbl] ?? ((2 * Math.PI * i) / Math.max(otherNodes.length, 1));
+      const angleJitter = ((i % 5) - 2) * 0.22;
+      const angle = baseAngle + angleJitter;
+      const dist = 145 + ((i % 4) * 45);
 
-    const nodeById = new Map(positioned.map(n => [n.id, n]));
-    const validEdges = filteredGraphData.edges
+      simNodes.push({
+        ...node,
+        x: Math.max(50, Math.min(width - 50, centerX + Math.cos(angle) * dist)),
+        y: Math.max(50, Math.min(height - 50, centerY + Math.sin(angle) * dist)),
+        vx: 0,
+        vy: 0,
+        radius: (NODE_STYLES[lbl]?.radius || 15) + 10,
+        isFixed: false
+      });
+    });
+
+    const nodeById = new Map(simNodes.map(n => [n.id, n]));
+    const edges = filteredGraphData.edges
       .filter(e => nodeById.has(e.source) && nodeById.has(e.target))
       .map(e => ({
         ...e,
@@ -394,7 +518,98 @@ export default function ProjectMemoryTab({
         targetNode: nodeById.get(e.target)
       }));
 
-    return { nodes: positioned, edges: validEdges, nodeById };
+    // Iterative force relaxation loop with collision prevention
+    const iterations = 80;
+    const kRepulse = 3600;
+    const kSpring = 0.045;
+    const idealSpringDist = 110;
+    const damping = 0.82;
+
+    for (let iter = 0; iter < iterations; iter++) {
+      // 1. Repulsion between all pairs + collision resolution
+      for (let i = 0; i < simNodes.length; i++) {
+        const n1 = simNodes[i];
+        for (let j = i + 1; j < simNodes.length; j++) {
+          const n2 = simNodes[j];
+          const dx = n2.x - n1.x;
+          const dy = n2.y - n1.y;
+          const distSq = dx * dx + dy * dy || 1;
+          const dist = Math.sqrt(distSq);
+          const minDist = n1.radius + n2.radius;
+
+          let force = kRepulse / (distSq + 200);
+          if (dist < minDist) {
+            force += (minDist - dist) * 0.8;
+          }
+
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+
+          if (!n1.isFixed) {
+            n1.vx -= fx;
+            n1.vy -= fy;
+          }
+          if (!n2.isFixed) {
+            n2.vx += fx;
+            n2.vy += fy;
+          }
+        }
+      }
+
+      // 2. Spring attraction along edges
+      for (const e of edges) {
+        const n1 = e.sourceNode;
+        const n2 = e.targetNode;
+        const dx = n2.x - n1.x;
+        const dy = n2.y - n1.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const springForce = (dist - idealSpringDist) * kSpring;
+        const fx = (dx / dist) * springForce;
+        const fy = (dy / dist) * springForce;
+
+        if (!n1.isFixed) {
+          n1.vx += fx;
+          n1.vy += fy;
+        }
+        if (!n2.isFixed) {
+          n2.vx += fx;
+          n2.vy += fy;
+        }
+      }
+
+      // 3. Mild gravity pull towards center for unanchored nodes
+      for (const n of simNodes) {
+        if (!n.isFixed) {
+          const dx = centerX - n.x;
+          const dy = centerY - n.y;
+          n.vx += dx * 0.008;
+          n.vy += dy * 0.008;
+
+          n.x += n.vx * damping;
+          n.y += n.vy * damping;
+          n.vx *= damping;
+          n.vy *= damping;
+
+          n.x = Math.max(45, Math.min(width - 45, n.x));
+          n.y = Math.max(45, Math.min(height - 45, n.y));
+        }
+      }
+    }
+
+    const finalNodes = simNodes.map(n => ({
+      ...n,
+      x: Math.round(n.x),
+      y: Math.round(n.y)
+    }));
+
+    const finalNodeById = new Map(finalNodes.map(n => [n.id, n]));
+    const validEdges = edges.map(e => ({
+      ...e,
+      sourceNode: finalNodeById.get(e.source),
+      targetNode: finalNodeById.get(e.target)
+    }));
+
+    return { nodes: finalNodes, edges: validEdges, nodeById: finalNodeById };
   }, [filteredGraphData]);
 
   // Determine active selected node or edge
@@ -442,10 +657,9 @@ export default function ProjectMemoryTab({
     return { neighborIds: nIds, incidentEdges: inc };
   }, [activeNode, rawGraphNodes, rawGraphEdges]);
 
-  // Filtered repository file tree (replaces standalone FilesTab)
+  // Filtered repository file tree (powered by builtFileTree from memoryOverview / analysisData)
   const filteredFileTree = useMemo(() => {
-    const tree = analysisData?.structure?.tree || [];
-    if (!graphSearch.trim()) return tree;
+    if (!graphSearch.trim()) return builtFileTree;
     const term = graphSearch.toLowerCase().trim();
 
     function filterNode(node) {
@@ -461,16 +675,18 @@ export default function ProjectMemoryTab({
       return null;
     }
 
-    return tree.map(filterNode).filter(Boolean);
-  }, [analysisData?.structure?.tree, graphSearch]);
+    return builtFileTree.map(filterNode).filter(Boolean);
+  }, [builtFileTree, graphSearch]);
 
-  // Matching flat file paths when searching in large repositories
+  // Matching flat file paths when searching in repositories
   const matchingFlatFiles = useMemo(() => {
     const q = graphSearch.trim().toLowerCase();
     if (!q) return [];
-    const allPaths = analysisData?.aiContextReady?.filePaths || [];
-    return allPaths.filter(p => p.toLowerCase().includes(q)).slice(0, 30);
-  }, [analysisData?.aiContextReady?.filePaths, graphSearch]);
+    return filesList
+      .filter(f => (f.path || '').toLowerCase().includes(q))
+      .map(f => f.path)
+      .slice(0, 30);
+  }, [filesList, graphSearch]);
 
   // Select a file or directory from the file tree / search results and load it into the Inspector
   const handleSelectFileOrDir = (treeNodeOrPath) => {
@@ -761,18 +977,17 @@ export default function ProjectMemoryTab({
           )}
 
           {/* Compact Entity Counters */}
-          <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-neutral-500 dark:text-[#8b949e] pl-2 border-l border-neutral-200 dark:border-[#30363d]">
-            <span>{counts.components} components</span>
-            <span>·</span>
-            <span>{counts.files} files</span>
-            <span>·</span>
-            <span>{counts.symbols} symbols</span>
-            <span>·</span>
-            <span className="text-amber-600 dark:text-amber-400">{counts.decisions} decisions</span>
-            <span>·</span>
-            <span className="text-red-600 dark:text-red-400">{counts.bugs} bugs</span>
-            <span>·</span>
-            <span className="text-emerald-600 dark:text-[#3fb950]">{counts.fixes} fixes</span>
+          <div className="hidden sm:flex flex-wrap items-center gap-2 text-[11px] font-mono text-neutral-500 dark:text-[#8b949e] pl-2 border-l border-neutral-200 dark:border-[#30363d]">
+            {counts.commits > 0 && <span className="text-blue-600 dark:text-blue-400">{counts.commits} commits</span>}
+            {counts.pullRequests > 0 && <span className="text-emerald-600 dark:text-emerald-400">{counts.pullRequests} PRs</span>}
+            {counts.issues > 0 && <span className="text-amber-600 dark:text-amber-400">{counts.issues} issues</span>}
+            {counts.adrs > 0 && <span className="text-purple-600 dark:text-purple-400">{counts.adrs} ADRs</span>}
+            {counts.components > 0 && <span>{counts.components} components</span>}
+            {counts.files > 0 && <span>{counts.files} files</span>}
+            {counts.symbols > 0 && <span>{counts.symbols} symbols</span>}
+            {counts.decisions > 0 && <span className="text-amber-600 dark:text-amber-400">{counts.decisions} decisions</span>}
+            {counts.bugs > 0 && <span className="text-red-600 dark:text-red-400">{counts.bugs} bugs</span>}
+            {counts.fixes > 0 && <span className="text-emerald-600 dark:text-[#3fb950]">{counts.fixes} fixes</span>}
           </div>
         </div>
 
@@ -1082,7 +1297,7 @@ export default function ProjectMemoryTab({
                   }`}
                 >
                   <FolderTree className="w-3.5 h-3.5" />
-                  <span>Repository Files ({analysisData?.metrics?.totalFiles || 0})</span>
+                  <span>Repository Files ({totalFiles})</span>
                 </button>
               </div>
 
@@ -1167,8 +1382,8 @@ export default function ProjectMemoryTab({
             <div className="relative bg-neutral-950/5 dark:bg-[#090d13] select-none overflow-hidden">
               {positionedGraph.nodes.length > 0 ? (
                 <svg
-                  viewBox="0 0 760 480"
-                  className={`w-full h-[460px] sm:h-[520px] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  viewBox="0 0 800 520"
+                  className={`w-full h-[480px] sm:h-[540px] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
@@ -1211,7 +1426,7 @@ export default function ProjectMemoryTab({
                   </defs>
 
                   <g
-                    transform={`translate(${pan.x + 380 * (1 - zoom)}, ${pan.y + 240 * (1 - zoom)}) scale(${zoom})`}
+                    transform={`translate(${pan.x + 400 * (1 - zoom)}, ${pan.y + 260 * (1 - zoom)}) scale(${zoom})`}
                   >
                     {/* Edges */}
                     {positionedGraph.edges.map((edge) => {
@@ -1411,7 +1626,16 @@ export default function ProjectMemoryTab({
                 </div>
               )}
 
-              {filteredFileTree.length > 0 ? (
+              {isLoadingMemory ? (
+                <div className="py-12 flex flex-col items-center justify-center text-xs text-neutral-400 gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                  <span>Loading repository files...</span>
+                </div>
+              ) : !repoFullName ? (
+                <div className="py-12 text-center text-xs text-neutral-400">
+                  Select a repository to inspect its files.
+                </div>
+              ) : filteredFileTree.length > 0 ? (
                 filteredFileTree.map(node => (
                   <FileTreeItem
                     key={node.path}
@@ -1423,8 +1647,19 @@ export default function ProjectMemoryTab({
                   />
                 ))
               ) : (
-                <div className="py-12 text-center text-xs text-neutral-400">
-                  No repository files matching "{graphSearch}".
+                <div className="py-12 text-center text-xs text-neutral-400 space-y-1.5 px-4">
+                  <p className="font-semibold text-neutral-700 dark:text-[#c9d1d9]">
+                    {graphSearch.trim()
+                      ? `No repository files matching "${graphSearch}".`
+                      : totalFiles === 0
+                        ? `Repository files have not been indexed yet for ${repoFullName}.`
+                        : `No eligible source files found.`}
+                  </p>
+                  {totalFiles === 0 && !graphSearch.trim() && (
+                    <p className="text-[11px] text-neutral-500 dark:text-[#8b949e] max-w-sm mx-auto">
+                      Index this repository in Rationale Explorer to retrieve its file tree and cross-entity relationships.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

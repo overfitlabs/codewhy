@@ -1,8 +1,13 @@
-# CodeWhy: Evidence-First Historical & Architectural Rationale Engine
+<p align="center">
+  <img src="assets/codewhy.png" alt="CodeWhy Logo" width="120" style="border-radius: 16px;" />
+</p>
+
+<h1 align="center">CodeWhy</h1>
+<p align="center"><strong>Evidence-First Historical & Architectural Rationale Engine</strong></p>
 
 > **hackFront India** | **Theme T1**: AI and Developer Tools | **Problem Statement T1.1**: “Why The Code Is Like This”  
-> **Repository Submission Directory**: [`CodeWhy/`](file:///c:/Users/shubh/Desktop/hackfront/code/CodeWhy)  
-> **Runbook & Demo Script**: [`DEMO_RUNBOOK.md`](file:///c:/Users/shubh/Desktop/hackfront/code/CodeWhy/DEMO_RUNBOOK.md)
+> **Repository**: [github.com/overfitlabs/codewhy](https://github.com/overfitlabs/codewhy)  
+> **Runbook & Demo Script**: [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md)
 
 ---
 

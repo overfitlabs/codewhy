@@ -8,6 +8,7 @@
 
 import { neo4j, runQuery, validateNeo4jConfig, sanitizeErrorMessage } from '../db/neo4j.js';
 import { GraphIds, ensureGraphSchema, normalizePath } from './schema.js';
+import { retrieveEntityProvenance, inMemoryGraph } from '../codewhy/graph/adapter.js';
 
 const STOP_WORDS = new Set([
   'the', 'and', 'for', 'with', 'that', 'this', 'from', 'what', 'where', 'when',
@@ -666,6 +667,11 @@ export function buildInteractiveGraphSubgraph(repoFullName, {
   componentDependencies = [],
   symbols = [],
   recentCommits = [],
+  pullRequests = [],
+  issues = [],
+  adrs = [],
+  manifests = [],
+  files = [],
   componentsList = []
 } = {}) {
   const nodesMap = new Map();
@@ -1014,6 +1020,118 @@ export function buildInteractiveGraphSubgraph(repoFullName, {
     }
   }
 
+  // 6. Pull Requests
+  for (const pr of (pullRequests || []).slice(0, 15)) {
+    const prId = pr.id || `${repoFullName}:pull:${pr.number}`;
+    addNode({
+      id: prId,
+      label: 'PullRequest',
+      type: 'PullRequest',
+      title: pr.title ? `PR #${pr.number}: ${pr.title}` : `PR #${pr.number}`,
+      subtitle: `Pull Request (${pr.mergedAt ? 'Merged' : 'Closed'}) · ${pr.author || 'Contributor'}`,
+      provenance: 'GitHub Pull Requests API',
+      details: {
+        number: pr.number,
+        title: pr.title,
+        author: pr.author,
+        mergedAt: pr.mergedAt,
+        url: pr.url,
+        excerpt: pr.verbatimExcerpt || pr.body || ''
+      }
+    });
+    addEdge(repoId, prId, 'REPOSITORY_HAS_PR', { provenance: 'GitHub Pull Requests API' });
+  }
+
+  // 7. Issues
+  for (const iss of (issues || []).slice(0, 15)) {
+    const issId = iss.id || `${repoFullName}:issue:${iss.number}`;
+    addNode({
+      id: issId,
+      label: 'Issue',
+      type: 'Issue',
+      title: iss.title ? `Issue #${iss.number}: ${iss.title}` : `Issue #${iss.number}`,
+      subtitle: `Issue #${iss.number} (${iss.status || 'closed'}) · ${iss.author || 'Author'}`,
+      provenance: 'GitHub Issues API',
+      details: {
+        number: iss.number,
+        title: iss.title,
+        author: iss.author,
+        url: iss.url,
+        excerpt: iss.verbatimExcerpt || iss.body || ''
+      }
+    });
+    addEdge(repoId, issId, 'REPOSITORY_HAS_ISSUE', { provenance: 'GitHub Issues API' });
+  }
+
+  // 8. Architecture Decision Records
+  for (const adr of (adrs || [])) {
+    const adrId = adr.id || `${repoFullName}:adr:${adr.slug || adr.title}`;
+    addNode({
+      id: adrId,
+      label: 'ADR',
+      type: 'ADR',
+      title: adr.title || 'ADR Document',
+      subtitle: `ADR (${adr.status || 'accepted'})`,
+      provenance: 'Architecture Decision Record',
+      details: {
+        title: adr.title,
+        status: adr.status || 'accepted',
+        path: adr.path,
+        date: adr.date,
+        url: adr.url,
+        excerpt: adr.verbatimExcerpt || adr.contextExcerpt || ''
+      }
+    });
+    addEdge(repoId, adrId, 'REPOSITORY_HAS_ADR', { provenance: 'Architecture Decision Record' });
+    if (adr.supersededBy) {
+      addEdge(adrId, adr.supersededBy, 'SUPERSEDED_BY', { provenance: 'ADR Supersession' });
+    }
+    if (adr.supersedes) {
+      addEdge(adrId, adr.supersedes, 'SUPERSEDES', { provenance: 'ADR Supersession' });
+    }
+  }
+
+  // 9. Package Manifests
+  for (const man of (manifests || [])) {
+    const manId = man.id || `${repoFullName}:manifest:package.json`;
+    addNode({
+      id: manId,
+      label: 'Manifest',
+      type: 'Manifest',
+      title: man.title || 'package.json',
+      subtitle: 'Package Manifest',
+      provenance: 'Repository Configuration Manifest',
+      details: {
+        title: man.title,
+        url: man.url,
+        excerpt: man.verbatimExcerpt || ''
+      }
+    });
+    addEdge(repoId, manId, 'REPOSITORY_HAS_MANIFEST', { provenance: 'Repository Manifest' });
+  }
+
+  // 10. Indexed Repository Files (bounded to top 14 files for clear layout)
+  for (const f of (files || []).slice(0, 14)) {
+    const fPath = f.path || f;
+    const fId = GraphIds.file(repoFullName, fPath);
+    const fName = f.name || (typeof fPath === 'string' ? fPath.split('/').pop() : 'file');
+    addNode({
+      id: fId,
+      label: 'File',
+      type: 'File',
+      title: fPath,
+      subtitle: `Source File (${fName})`,
+      provenance: 'Repository File Index (Git Trees API)',
+      details: {
+        path: fPath,
+        name: fName,
+        size: f.size || 0,
+        url: f.url || `https://github.com/${repoFullName}/blob/main/${fPath}`
+      }
+    });
+    addEdge(repoId, fId, 'REPOSITORY_CONTAINS_FILE', { provenance: 'Git Trees API' });
+  }
+
   return {
     nodes: Array.from(nodesMap.values()),
     edges
@@ -1062,35 +1180,104 @@ export async function getRepositoryMemoryOverview(repoFullNameInput, options = {
   const repoId = GraphIds.repository(repoFullName);
 
   try {
-    const [countsRes, contextRes, compRowsRes] = await Promise.all([
-      runQuery(
-        CYPHER_TEMPLATES.RETRIEVE_REPO_COUNTS,
-        { repoId, repoFullName },
-        { env, accessMode: 'READ' }
-      ),
-      retrieveGraphContextForQuestion(repoFullName, options.query || '', {
-        ...options,
-        maxBugs: 20,
-        maxComponents: 25,
-        maxSymbols: 25,
-        maxCommits: 10
-      }),
-      runQuery(
-        CYPHER_TEMPLATES.RETRIEVE_DECISIONS_AND_DEPENDENCIES,
-        { repoId, limit: neo4j.int(25) },
-        { env, accessMode: 'READ' }
-      )
-    ]);
+    let countRow = {};
+    let contextRes = { bugsAndFixes: [], decisions: [], componentDependencies: [], symbols: [], recentCommits: [] };
+    let compRowsRes = { records: [] };
 
-    const countRow = countsRes.records?.[0] || {};
+    try {
+      const [countsRes, cRes, compRes] = await Promise.all([
+        runQuery(
+          CYPHER_TEMPLATES.RETRIEVE_REPO_COUNTS,
+          { repoId, repoFullName },
+          { env, accessMode: 'READ' }
+        ),
+        retrieveGraphContextForQuestion(repoFullName, options.query || '', {
+          ...options,
+          maxBugs: 20,
+          maxComponents: 25,
+          maxSymbols: 25,
+          maxCommits: 10
+        }),
+        runQuery(
+          CYPHER_TEMPLATES.RETRIEVE_DECISIONS_AND_DEPENDENCIES,
+          { repoId, limit: neo4j.int(25) },
+          { env, accessMode: 'READ' }
+        )
+      ]);
+      countRow = countsRes.records?.[0] || {};
+      contextRes = cRes || contextRes;
+      compRowsRes = compRes || compRowsRes;
+    } catch {
+      // In-memory fallback if Neo4j is offline or unreachable
+    }
+
+    // Load indexed evidence provenance (commits, PRs, issues, ADRs, manifests)
+    let prov = { commits: [], pullRequests: [], issues: [], adrs: [], decisions: [], evidenceRecords: [] };
+    try {
+      prov = await retrieveEntityProvenance({ repository: repoFullName });
+    } catch {
+      // Ignore if adapter fails
+    }
+
+    const manifests = inMemoryGraph.findNodesByLabel('Manifest').filter(
+      m => m.repository === repoFullName || m.id?.startsWith(`${repoFullName}:`)
+    );
+
+    let fileNodes = inMemoryGraph.findNodesByLabel('File').filter(
+      f => f.repository === repoFullName || f.id?.startsWith(`${repoFullName}:`)
+    );
+
+    // If inMemoryGraph has no File nodes for this repo but Neo4j is connected, query Neo4j for files
+    if (fileNodes.length === 0) {
+      try {
+        const neoFilesRes = await runQuery(
+          `MATCH (f:File)
+           WHERE f.repoFullName = $repoFullName OR f.repository = $repoFullName OR f.id STARTS WITH $prefix
+           RETURN f.path as path, coalesce(f.name, f.path) as name, coalesce(f.size, 0) as size, f.id as id
+           LIMIT 120`,
+          { repoFullName, prefix: `${repoFullName}:` },
+          { env, accessMode: 'READ' }
+        );
+        for (const row of (neoFilesRes.records || [])) {
+          if (row.path) {
+            inMemoryGraph.addNode('File', row.id || `${repoFullName}:file:${row.path}`, {
+              path: row.path,
+              name: row.name || (typeof row.path === 'string' ? row.path.split('/').pop() : 'file'),
+              size: Number(row.size || 0),
+              repository: repoFullName
+            });
+          }
+        }
+        fileNodes = inMemoryGraph.findNodesByLabel('File').filter(
+          f => f.repository === repoFullName || f.id?.startsWith(`${repoFullName}:`)
+        );
+      } catch {
+        // Ignore if query fails
+      }
+    }
+
+    const filesList = fileNodes.length > 0
+      ? fileNodes.map(f => ({
+          path: f.path,
+          name: f.name || (typeof f.path === 'string' ? f.path.split('/').pop() : 'file'),
+          size: f.size || 0,
+          extension: f.extension || (typeof f.path === 'string' && f.path.includes('.') ? '.' + f.path.split('.').pop() : ''),
+          url: f.url || `https://github.com/${repoFullName}/blob/main/${f.path}`
+        }))
+      : (prov.files && prov.files.length > 0 ? prov.files : []);
+
     const counts = {
-      files: Number(countRow.filesCount || 0),
+      files: Math.max(Number(countRow.filesCount || 0), filesList.length, (prov.files || []).length),
       components: Number(countRow.componentsCount || 0),
       symbols: Number(countRow.symbolsCount || 0),
-      decisions: Number(countRow.decisionsCount || (contextRes.decisions?.length || 0)),
-      bugs: Number(countRow.bugsCount || (contextRes.bugsAndFixes?.length || 0)),
-      fixes: Number(countRow.fixesCount || (contextRes.bugsAndFixes?.filter(b => b.fixSummary)?.length || 0)),
-      commits: Number(countRow.commitsCount || (contextRes.recentCommits?.length || 0)),
+      decisions: Math.max(Number(countRow.decisionsCount || 0), contextRes.decisions?.length || 0, (prov.decisions || []).length),
+      bugs: Number(countRow.bugsCount || 0),
+      fixes: Number(countRow.fixesCount || 0),
+      commits: Math.max(Number(countRow.commitsCount || 0), (contextRes.recentCommits || []).length, (prov.commits || []).length),
+      pullRequests: (prov.pullRequests || []).length,
+      issues: (prov.issues || []).length,
+      adrs: (prov.adrs || []).length,
+      manifests: manifests.length,
       relationships: Number(countRow.relationshipsCount || 0)
     };
 
@@ -1109,6 +1296,20 @@ export async function getRepositoryMemoryOverview(repoFullNameInput, options = {
       provenance: 'Explicitly Recorded Decision'
     }));
 
+    // Merge any decisions from prov
+    for (const d of (prov.decisions || [])) {
+      if (!decisionsWithProvenance.some(ex => ex.id === d.id || ex.title === d.title)) {
+        decisionsWithProvenance.push({
+          id: d.id,
+          title: d.title,
+          rationale: d.rationale,
+          status: d.status || 'accepted',
+          componentPath: d.componentPath || 'root',
+          provenance: 'Explicitly Recorded Decision'
+        });
+      }
+    }
+
     const depsWithProvenance = (contextRes.componentDependencies || []).map(dep => ({
       ...dep,
       provenance: 'Static Source Analysis (Import Graph)'
@@ -1119,14 +1320,37 @@ export async function getRepositoryMemoryOverview(repoFullNameInput, options = {
       provenance: 'Static Source Analysis (JS/TS Parser)'
     }));
 
+    // Merge recent commits
+    const allCommits = [...(contextRes.recentCommits || [])];
+    for (const c of (prov.commits || [])) {
+      if (!allCommits.some(ex => (ex.sha && ex.sha === c.sha) || (ex.shortSha && ex.shortSha === c.sha?.slice(0, 7)))) {
+        allCommits.push({
+          sha: c.sha,
+          shortSha: c.sha ? c.sha.slice(0, 7) : c.id,
+          message: c.message || c.title,
+          author: c.author,
+          date: c.date || c.timestamp,
+          changedFiles: c.files || (c.filePath ? [c.filePath] : [])
+        });
+      }
+    }
+
     const graph = buildInteractiveGraphSubgraph(repoFullName, {
       bugsAndFixes: bugsWithProvenance,
       decisions: decisionsWithProvenance,
       componentDependencies: depsWithProvenance,
       symbols: symbolsWithProvenance,
-      recentCommits: contextRes.recentCommits || [],
+      recentCommits: allCommits,
+      pullRequests: prov.pullRequests || [],
+      issues: prov.issues || [],
+      adrs: prov.adrs || [],
+      manifests,
+      files: filesList,
       componentsList
     });
+
+    counts.relationships = graph.edges.length;
+    const isIndexed = graph.nodes.length > 1 || counts.commits > 0 || counts.pullRequests > 0 || counts.issues > 0 || counts.adrs > 0 || counts.files > 0;
 
     return {
       available: true,
@@ -1134,12 +1358,20 @@ export async function getRepositoryMemoryOverview(repoFullNameInput, options = {
       configured: true,
       status: 'connected',
       repoFullName,
+      isIndexed,
+      storageMode: prov.sourceMode === 'live_github' ? 'neo4j_active' : (prov.sourceMode || 'in_memory_verified_fallback'),
+      storageLabel: prov.sourceMode === 'live_github' ? 'Neo4j Persistent Graph' : 'In-Memory Store',
       counts,
       bugsAndFixes: bugsWithProvenance,
       decisions: decisionsWithProvenance,
       componentDependencies: depsWithProvenance,
       symbols: symbolsWithProvenance,
-      recentCommits: contextRes.recentCommits || [],
+      recentCommits: allCommits,
+      pullRequests: prov.pullRequests || [],
+      issues: prov.issues || [],
+      adrs: prov.adrs || [],
+      manifests,
+      files: filesList,
       graph
     };
   } catch (err) {

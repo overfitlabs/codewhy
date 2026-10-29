@@ -30,12 +30,12 @@ export default function RepoInput({ onAnalyze, isLoading, error }) {
       <div className="text-center space-y-2">
         <div className="flex justify-center pb-1">
           <img 
-            src="/icon_no_bg.png" 
-            alt="DevLens AI" 
-            className="w-28 sm:w-32 h-auto object-contain"
+            src="/codewhy.png" 
+            alt="CodeWhy" 
+            className="w-24 sm:w-28 h-auto object-contain rounded-xl shadow-xs"
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = '/icon_no_bg.png';
+              e.target.src = '/codewhy.png';
             }}
           />
         </div>

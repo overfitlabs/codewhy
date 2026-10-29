@@ -81,11 +81,22 @@ export function validateClaimSupport(statement, sourceRecord) {
     return mentionsReAdd && sourceHasReAdd;
   }
 
-  // package.json manifest: mocha vs jest
-  if (sourceRecord.id.includes('package.json')) {
-    const mentionsPackage = s.includes('package.json') || s.includes('mocha') || s.includes('devdependencies');
-    const sourceHasPackage = excerpt.includes('mocha') || excerpt.includes('devdependencies');
-    return mentionsPackage && sourceHasPackage;
+  // Manifest files (package.json, manifests):
+  // CAN validate factual implementation statements (configuration, dependencies, scripts, exports, versions)
+  // CANNOT validate causal rationale ("why" maintainers chose that configuration or historical motivation)
+  if (sourceRecord.type === 'manifest' || sourceRecord.id?.includes('manifest') || sourceRecord.id?.includes('package.json')) {
+    const assertsCausalWhy = (
+      (s.includes('why') || s.includes('because') || s.includes('decided to') || s.includes('motivated by') || s.includes('rationale for choosing') || s.includes('chose to switch')) &&
+      !s.includes('not document') && !s.includes('no documentary') && !s.includes('no rationale') && !s.includes('declines to speculate')
+    );
+    if (assertsCausalWhy) {
+      // Manifests cannot establish causal or historical rationale alone
+      return false;
+    }
+
+    const mentionsPackage = s.includes('package.json') || s.includes('manifest') || s.includes('devdependencies') || s.includes('dependencies') || s.includes('scripts') || s.includes('config') || s.includes('exports') || s.includes('type') || s.includes('mocha') || s.includes('jest') || s.includes('xo') || s.includes('c8') || s.includes('node');
+    const sourceHasPackage = excerpt.includes('mocha') || excerpt.includes('devdependencies') || excerpt.includes('scripts') || excerpt.includes('dependencies') || excerpt.includes('version') || excerpt.includes('name');
+    return mentionsPackage && (sourceHasPackage || title.includes('manifest') || title.includes('package.json'));
   }
 
   // Backstage ADR013: node-fetch recommendation & superseded banner
@@ -125,9 +136,32 @@ export function validateClaimSupport(statement, sourceRecord) {
     return mentions24590 && sourceHas24590;
   }
 
-  // Generic fallback: check significant keyword overlap
-  const words = statement.toLowerCase().split(/\W+/).filter(w => w.length > 5);
-  const matched = words.filter(w => excerpt.includes(w) || title.includes(w) || citation.includes(w));
+  // Generic fallback: check significant keyword overlap with rationale requirement
+  const words = statement.toLowerCase().split(/\W+/).filter(w => w.length > 4);
+  const isCausalWhy = (
+    (s.includes('why') || s.includes('because') || s.includes('decided to') || s.includes('motivated by') || s.includes('rationale')) &&
+    !s.includes('not document') && !s.includes('no documentary') && !s.includes('no rationale')
+  );
+  if (isCausalWhy) {
+    const hasRationaleContent = (
+      excerpt.includes('because') || excerpt.includes('why') || excerpt.includes('rationale') ||
+      excerpt.includes('decision') || excerpt.includes('consensus') || excerpt.includes('compromise') ||
+      excerpt.includes('supersed') || excerpt.includes('replace') || excerpt.includes('migrat') ||
+      excerpt.includes('issue') || excerpt.includes('pr #') || excerpt.includes('decouple') ||
+      excerpt.includes('intent') || excerpt.includes('breaking') || excerpt.includes('discussion') ||
+      excerpt.includes('rfc') || excerpt.includes('eliminate') || excerpt.includes('avoid') ||
+      excerpt.includes('prevent') || excerpt.includes('closes #') || excerpt.includes('fixes #') ||
+      excerpt.includes('resolves #') || excerpt.includes('bottleneck') ||
+      title.includes('breaking') || title.includes('rationale') || title.includes('closes #')
+    );
+    if (!hasRationaleContent) {
+      // Keyword overlap alone cannot establish causal or historical rationale
+      return false;
+    }
+  }
+
+  const nonStop = words.filter(w => !['documented', 'implementation', 'context', 'regarding', 'maintainer', 'repository', 'record'].includes(w));
+  const matched = nonStop.filter(w => excerpt.includes(w) || title.includes(w) || citation.includes(w));
   return matched.length >= 2;
 }
 

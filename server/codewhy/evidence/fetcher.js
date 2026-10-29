@@ -62,6 +62,7 @@ export async function fetchEvidenceSlice(params = {}) {
       commits: targetFixture.commits || [],
       issues: targetFixture.issues || [],
       decisions: targetFixture.decisions || [],
+      files: targetFixture.files || [],
       manifestArtifacts: targetFixture.manifestArtifacts || [],
       testFrameworkMetadata: targetFixture.testFrameworkMetadata || null
     };

@@ -5,11 +5,14 @@ import ProjectMemoryTab from './components/Tabs/ProjectMemoryTab';
 import CodeWhyExplorer from './components/CodeWhy/CodeWhyExplorer';
 import BenchmarkTab from './components/CodeWhy/BenchmarkTab';
 import { buildCompactAnalysisPayload } from './utils/analysisPayload';
-import { Database, ArrowRight } from 'lucide-react';
+import { normalizeRepoInput } from './utils/repository';
+import { Database, ArrowRight, Search, CheckCircle2, Terminal, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const SESSION_ANALYSIS_KEY = 'codewhy_last_analysis';
 const SESSION_TAB_KEY = 'codewhy_active_tab';
 const SESSION_SUMMARY_PREFIX = 'codewhy_summary_';
+
+export { normalizeRepoInput };
 
 export default function App() {
   // Theme state: default 'dark', persisted in localStorage
@@ -38,10 +41,35 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Shared single source of truth for active repository across all tabs
+  const [selectedRepository, setSelectedRepository] = useState(() => {
+    return normalizeRepoInput(sessionStorage.getItem('codewhy_selected_repo') || 'expressjs/express');
+  });
+
+  // Real repository indexing and artifact status owned by application shell
+  const [repoStatusData, setRepoStatusData] = useState({
+    repository: selectedRepository,
+    status: 'READY',
+    statusLabel: 'Indexed & Provenance Ready',
+    isIndexed: true,
+    isDurable: true,
+    storageMode: 'neo4j_active',
+    storageLabel: 'Neo4j Persistent Graph',
+    counts: null,
+    categories: null,
+    lastIndexedAt: null,
+    error: null
+  });
+  const [isLoadingRepoStatus, setIsLoadingRepoStatus] = useState(false);
+  const [repoStatusError, setRepoStatusError] = useState(null);
+
   // Persistent Neo4j Project Memory state
   const [memoryOverview, setMemoryOverview] = useState(null);
   const [isLoadingMemory, setIsLoadingMemory] = useState(false);
   const [memoryError, setMemoryError] = useState(null);
+
+  // Concurrency token to prevent out-of-order responses from overwriting newer selections
+  const activeRepoRequestIdRef = useRef(0);
 
   // AI Summary state
   const [summary, setSummary] = useState(null);
@@ -56,6 +84,8 @@ export default function App() {
   const [qaError, setQaError] = useState(null);
   const [investigationTarget, setInvestigationTarget] = useState(null);
 
+  const [graphRepoInput, setGraphRepoInput] = useState('');
+
   // Apply theme class to document
   useEffect(() => {
     if (theme === 'dark') {
@@ -65,6 +95,13 @@ export default function App() {
     }
     localStorage.setItem('codewhy_theme', theme);
   }, [theme]);
+
+  // Persist selected repository
+  useEffect(() => {
+    if (selectedRepository) {
+      sessionStorage.setItem('codewhy_selected_repo', selectedRepository);
+    }
+  }, [selectedRepository]);
 
   // Load graph status on mount
   useEffect(() => {
@@ -98,26 +135,135 @@ export default function App() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
 
-  const fetchMemoryOverview = useCallback(async (repoFullName) => {
-    const targetRepo = repoFullName || analysisData?.repository?.fullName;
-    if (!targetRepo) return;
+  const handleSelectRepository = useCallback(async (repoInput, options = {}) => {
+    const normalized = normalizeRepoInput(repoInput);
+    if (!normalized || !normalized.includes('/')) return;
 
-    setIsLoadingMemory(true);
+    // Increment request token for race-condition prevention
+    const currentRequestId = ++activeRepoRequestIdRef.current;
+
+    // 1. Update selection in state and session storage
+    setSelectedRepository(normalized);
+    try {
+      sessionStorage.setItem('codewhy_selected_repo', normalized);
+    } catch {
+      // Ignore quota error
+    }
+
+    // 2. Immediately invalidate stale repository-specific data
+    setMemoryOverview(null);
     setMemoryError(null);
+    setIsLoadingMemory(true);
+    setIsLoadingRepoStatus(true);
+    setRepoStatusError(null);
+
+    // Apply immediate status override if provided (e.g. from indexing completion)
+    if (options.statusData) {
+      setRepoStatusData(options.statusData);
+    }
 
     try {
-      const res = await fetch(`/api/memory/overview?repo=${encodeURIComponent(targetRepo)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to load Neo4j project memory overview.');
+      const [statusRes, memoryRes] = await Promise.allSettled([
+        fetch(`/api/v1/why-code/repository-status?repo=${encodeURIComponent(normalized)}`),
+        fetch(`/api/memory/overview?repo=${encodeURIComponent(normalized)}`)
+      ]);
+
+      // If a newer repository selection was initiated, drop this stale response
+      if (currentRequestId !== activeRepoRequestIdRef.current) {
+        return;
       }
-      setMemoryOverview(data);
+
+      if (statusRes.status === 'fulfilled' && statusRes.value.ok) {
+        const sData = await statusRes.value.json();
+        if (currentRequestId === activeRepoRequestIdRef.current) {
+          setRepoStatusData({
+            repository: sData.repository || normalized,
+            status: sData.status || (sData.indexed ? 'READY' : 'UNINDEXED'),
+            statusLabel: sData.statusLabel || (sData.indexed ? 'Indexed & Provenance Ready' : 'Not Yet Indexed'),
+            isIndexed: Boolean(sData.indexed),
+            isDurable: Boolean(sData.isDurable),
+            storageMode: sData.storageMode || (sData.indexed ? 'neo4j_active' : 'unindexed_repository'),
+            storageLabel: sData.storageLabel || (sData.isDurable ? 'Neo4j Persistent Graph' : 'In-Memory Store'),
+            counts: sData.counts || null,
+            categories: sData.categories || null,
+            lastIndexedAt: sData.lastIndexedAt || null,
+            error: sData.error || null
+          });
+        }
+      } else {
+        if (currentRequestId === activeRepoRequestIdRef.current) {
+          setRepoStatusError('Could not verify repository status.');
+        }
+      }
+
+      if (memoryRes.status === 'fulfilled' && memoryRes.value.ok) {
+        const mData = await memoryRes.value.json();
+        if (currentRequestId === activeRepoRequestIdRef.current) {
+          setMemoryOverview(mData);
+          // Sync counts if not present in statusData
+          if (mData.counts) {
+            setRepoStatusData(prev => ({
+              ...prev,
+              counts: prev.counts || mData.counts,
+              isIndexed: prev.isIndexed ?? mData.isIndexed
+            }));
+          }
+        }
+      } else {
+        if (currentRequestId === activeRepoRequestIdRef.current) {
+          const errMsg = memoryRes.status === 'fulfilled'
+            ? (await memoryRes.value.json().catch(() => ({}))).error || 'Failed to load graph memory'
+            : memoryRes.reason?.message || 'Network error loading graph';
+          setMemoryError(errMsg);
+        }
+      }
     } catch (err) {
-      setMemoryError(err.message);
+      if (currentRequestId === activeRepoRequestIdRef.current) {
+        setRepoStatusError(err.message);
+        setMemoryError(err.message);
+      }
     } finally {
-      setIsLoadingMemory(false);
+      if (currentRequestId === activeRepoRequestIdRef.current) {
+        setIsLoadingRepoStatus(false);
+        setIsLoadingMemory(false);
+      }
     }
-  }, [analysisData?.repository?.fullName]);
+  }, []);
+
+  // On mount, load initial repository status and graph for selectedRepository
+  useEffect(() => {
+    if (selectedRepository) {
+      handleSelectRepository(selectedRepository);
+    }
+  }, []);
+
+  const handleNavigateToGraph = useCallback((repo) => {
+    if (repo && repo !== selectedRepository) {
+      handleSelectRepository(repo);
+    }
+    setActiveTab('memory');
+  }, [selectedRepository, handleSelectRepository]);
+
+  const handleNavigateToRationale = useCallback((repo) => {
+    if (repo && repo !== selectedRepository) {
+      handleSelectRepository(repo);
+    }
+    setActiveTab('codewhy');
+  }, [selectedRepository, handleSelectRepository]);
+
+  const handleNavigateToBenchmark = useCallback((repo) => {
+    if (repo && repo !== selectedRepository) {
+      handleSelectRepository(repo);
+    }
+    setActiveTab('eval');
+  }, [selectedRepository, handleSelectRepository]);
+
+  const handleGraphRepoSubmit = (e) => {
+    e.preventDefault();
+    if (!graphRepoInput.trim()) return;
+    handleSelectRepository(graphRepoInput.trim());
+    setGraphRepoInput('');
+  };
 
   const handleAnalyze = async (repoInput) => {
     setIsLoading(true);
@@ -133,13 +279,21 @@ export default function App() {
         throw new Error(data.error || 'Failed to inspect repository.');
       }
       setAnalysisData(data);
-      fetchMemoryOverview(data.repository?.fullName);
+      const repoName = data.repository?.fullName || repoInput;
+      handleSelectRepository(repoName);
     } catch (err) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const hasGraphData = Boolean(
+    memoryOverview &&
+    (memoryOverview.isIndexed ||
+      (memoryOverview.graph?.nodes?.length > 1) ||
+      (memoryOverview.counts?.commits > 0 || memoryOverview.counts?.pullRequests > 0 || memoryOverview.counts?.issues > 0))
+  );
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-[#0d1117] text-neutral-900 dark:text-[#c9d1d9] flex flex-col font-sans transition-colors">
@@ -150,6 +304,8 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         graphStatus={graphStatus}
+        selectedRepository={selectedRepository}
+        repoStatusData={repoStatusData}
       />
 
       {/* 2. Main Workspace Body */}
@@ -157,86 +313,156 @@ export default function App() {
         {/* TAB 1: PRIMARY RATIONALE EXPLORER */}
         {activeTab === 'codewhy' && (
           <div className="animate-in fade-in duration-200">
-            <CodeWhyExplorer />
+            <CodeWhyExplorer
+              selectedRepository={selectedRepository}
+              repoStatusData={repoStatusData}
+              isLoadingRepoStatus={isLoadingRepoStatus}
+              repoStatusError={repoStatusError}
+              onSelectRepository={handleSelectRepository}
+              onNavigateToGraph={handleNavigateToGraph}
+              onNavigateToBenchmark={handleNavigateToBenchmark}
+            />
           </div>
         )}
 
         {/* TAB 2: INTERACTIVE DECISION GRAPH & ARCHITECTURE MEMORY */}
         {activeTab === 'memory' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 animate-in fade-in duration-200">
-            <div className="p-6 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
-                    Neo4j Decision Graph & Memory
-                  </span>
-                  <span className="text-xs text-neutral-500 dark:text-[#8b949e]">
-                    Persistent Graph Database Subsystem
-                  </span>
+            <div className="p-5 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                      Decision Graph & Provenance Memory
+                    </span>
+                    <span className="text-xs text-neutral-500 dark:text-[#8b949e]">
+                      {repoStatusData?.storageLabel || memoryOverview?.storageLabel || (graphStatus?.neo4jConnected ? 'Neo4j Persistent Aura' : 'In-Memory Graph Fallback')}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                      repoStatusData?.isIndexed
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                    }`}>
+                      {repoStatusData?.isIndexed ? 'Indexed & Provenance Ready' : 'Not Yet Indexed'}
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-[#f0f6fc]">
+                    Interactive Architecture & Multi-Hop Decision Graph
+                  </h2>
+                  <p className="text-xs text-neutral-600 dark:text-[#8b949e]">
+                    Inspect connected commits, pull requests, issues, ADRs, and files scoped to &ldquo;{selectedRepository}&rdquo;.
+                  </p>
                 </div>
-                <h2 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-[#f0f6fc]">
-                  Interactive Architecture & Entity Provenance Graph
-                </h2>
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-[#8b949e]">
-                  Inspect connected repository files, AST functions, commits, issues, and ADR nodes stored in the decision graph.
-                </p>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavigateToRationale(selectedRepository)}
+                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2 self-start md:self-auto shrink-0 shadow-xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Investigate &ldquo;{selectedRepository}&rdquo; in Rationale</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAnalyze('expressjs/express')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                >
-                  Load Express.js Graph
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAnalyze('backstage/backstage')}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-neutral-100 dark:bg-[#21262d] text-neutral-700 dark:text-[#c9d1d9] hover:bg-neutral-200 dark:hover:bg-[#30363d] transition-colors"
-                >
-                  Load Backstage Graph
-                </button>
+              {/* Shared Repository Selector Bar */}
+              <div className="pt-3 border-t border-neutral-100 dark:border-[#21262d] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-neutral-500 dark:text-[#8b949e]">
+                    Active Repository:
+                  </span>
+                  {selectedRepository ? (
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-xs flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5" />
+                      <span>{selectedRepository}</span>
+                      <span className="text-[10px] bg-black/25 px-1.5 py-0.2 rounded font-normal">Active</span>
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-100 dark:bg-[#21262d] text-neutral-500 dark:text-[#8b949e] border border-dashed border-neutral-300 dark:border-[#30363d]">
+                      No repository selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Input to load any repository graph */}
+                <form onSubmit={handleGraphRepoSubmit} className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={graphRepoInput}
+                    onChange={(e) => setGraphRepoInput(e.target.value)}
+                    placeholder="Switch repo (e.g. chalk/chalk)..."
+                    className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-[#30363d] bg-neutral-50 dark:bg-[#0d1117] text-xs font-mono text-neutral-900 dark:text-[#f0f6fc] focus:outline-none focus:ring-1 focus:ring-indigo-500 w-48 sm:w-56"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!graphRepoInput.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-[#21262d] hover:bg-neutral-200 dark:hover:bg-[#30363d] text-neutral-700 dark:text-[#c9d1d9] text-xs font-semibold transition-colors disabled:opacity-50"
+                  >
+                    Switch
+                  </button>
+                </form>
               </div>
             </div>
 
-            {isLoading && <AnalysisProgress />}
+            {isLoadingMemory && (
+              <div className="p-12 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-center space-y-3 animate-pulse">
+                <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" />
+                <h3 className="text-base font-bold text-neutral-900 dark:text-[#f0f6fc]">
+                  Loading Decision Graph for &ldquo;{selectedRepository}&rdquo;
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-[#8b949e]">
+                  Querying multi-hop commits, PRs, issues, ADRs, and repository-scoped graph entities...
+                </p>
+              </div>
+            )}
 
-            {analysisData && !isLoading ? (
+            {memoryError && !isLoadingMemory && (
+              <div className="p-5 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-800 dark:text-red-300 text-sm flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                  <span>{memoryError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSelectRepository(selectedRepository)}
+                  className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {hasGraphData && !isLoadingMemory ? (
               <ProjectMemoryTab
+                repository={selectedRepository}
                 analysisData={analysisData}
                 memoryOverview={memoryOverview}
                 isLoadingMemory={isLoadingMemory}
                 memoryError={memoryError}
-                onRefreshMemory={() => fetchMemoryOverview(analysisData.repository?.fullName)}
-                onAskInCodebase={() => setActiveTab('codewhy')}
+                onRefreshMemory={() => handleSelectRepository(selectedRepository)}
+                onAskInCodebase={() => handleNavigateToRationale(selectedRepository)}
               />
-            ) : !isLoading && (
+            ) : !isLoadingMemory && !memoryError && (
               <div className="p-10 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-center space-y-4">
-                <Database className="w-10 h-10 text-indigo-500 mx-auto" />
-                <div className="space-y-1">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div className="space-y-1 max-w-lg mx-auto">
                   <h3 className="text-base font-bold text-neutral-900 dark:text-[#f0f6fc]">
-                    Explore Neo4j Knowledge Graph Slices
+                    Repository &ldquo;{selectedRepository}&rdquo; Not Yet Indexed in Decision Graph
                   </h3>
-                  <p className="text-xs text-neutral-500 dark:text-[#8b949e] max-w-md mx-auto">
-                    Select an indexed repository to inspect multi-hop connected historical evidence, commit relationships, and technical decisions.
+                  <p className="text-xs text-neutral-500 dark:text-[#8b949e] leading-relaxed">
+                    Decision Graph visualizes multi-hop commits, pull request discussions, issues, ADRs, and file structures. Because this repository has not yet been indexed, no evidence graph is available to display.
                   </p>
                 </div>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => handleAnalyze('expressjs/express')}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-2"
+                    onClick={() => handleNavigateToRationale(selectedRepository)}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-xs"
                   >
-                    <span>Inspect expressjs/express</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAnalyze('backstage/backstage')}
-                    className="px-4 py-2 rounded-lg bg-neutral-100 dark:bg-[#21262d] hover:bg-neutral-200 dark:hover:bg-[#30363d] text-neutral-800 dark:text-[#c9d1d9] text-xs font-semibold transition-colors flex items-center gap-2"
-                  >
-                    <span>Inspect backstage/backstage</span>
+                    <Terminal className="w-3.5 h-3.5" />
+                    <span>Index &ldquo;{selectedRepository}&rdquo; in Rationale Explorer</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -248,7 +474,14 @@ export default function App() {
         {/* TAB 3: BENCHMARK & AUDIT */}
         {activeTab === 'eval' && (
           <div className="animate-in fade-in duration-200">
-            <BenchmarkTab />
+            <BenchmarkTab
+              selectedRepository={selectedRepository}
+              repoStatusData={repoStatusData}
+              isLoadingRepoStatus={isLoadingRepoStatus}
+              repoStatusError={repoStatusError}
+              onSelectRepository={handleSelectRepository}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+            />
           </div>
         )}
       </main>

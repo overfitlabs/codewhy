@@ -13,9 +13,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { fetchEvidenceSlice } from '../evidence/fetcher.js';
-import { ingestSliceToGraph, retrieveEntityProvenance, inMemoryGraph } from '../graph/adapter.js';
+import { ingestSliceToGraph, retrieveEntityProvenance, rehydrateFromNeo4j, inMemoryGraph } from '../graph/adapter.js';
 import { synthesizeWhyAnswer } from '../services/synthesizer.js';
 import { checkNeo4jHealth } from '../../db/neo4j.js';
+import { indexRepository, getIndexingStatus, normalizeGitHubRepo } from '../services/indexer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,37 +106,161 @@ codewhyRouter.get('/why-code/presets', (req, res) => {
  * GET /api/v1/why-code/repository-status
  * Validates repository format and returns honest indexing status & guidance.
  */
-codewhyRouter.get('/why-code/repository-status', (req, res) => {
+codewhyRouter.get('/why-code/repository-status', async (req, res) => {
   const repoRaw = (req.query.repository || req.query.repo || '').trim();
   if (!repoRaw) {
     return res.status(400).json({ status: 'ERROR', error: 'Repository parameter is required.' });
   }
 
-  // Normalize github URL if supplied (e.g. https://github.com/owner/repo)
-  let repo = repoRaw.replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').trim();
-  if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(repo)) {
+  let repoMeta;
+  try {
+    repoMeta = normalizeGitHubRepo(repoRaw);
+  } catch (err) {
     return res.status(400).json({ status: 'ERROR', error: 'Invalid repository format. Expected "owner/repo" or full GitHub URL.' });
   }
 
+  const repo = repoMeta.fullName;
   const repoLower = repo.toLowerCase();
   const isExpress = repoLower.includes('express');
   const isBackstage = repoLower.includes('backstage');
+
+  // If repository is not yet in in-memory graph, attempt to rehydrate from persistent Neo4j store
+  if (!inMemoryGraph.getNode(repo)) {
+    await rehydrateFromNeo4j(repo).catch(() => false);
+  }
+
+  // Check in-memory index registry
+  const regStatus = getIndexingStatus(repo);
   const repoNode = inMemoryGraph.getNode(repo);
   const inGraph = Boolean(repoNode && repoNode.sourceMode !== 'unindexed_repository' && (inMemoryGraph.findNodesByLabel('Commit').some(c => c.repository === repo) || inMemoryGraph.findNodesByLabel('ADR').some(a => a.id.startsWith(repo))));
+
+  if (regStatus && regStatus.status !== 'IDLE') {
+    return res.json({
+      repository: repo,
+      indexed: regStatus.status === 'READY' || regStatus.status === 'PARTIAL',
+      status: regStatus.status,
+      statusLabel: regStatus.status === 'READY'
+        ? 'Indexed & Provenance Ready'
+        : regStatus.status === 'PARTIAL'
+        ? 'Partially Indexed'
+        : regStatus.status === 'INDEXING'
+        ? 'Indexing In Progress'
+        : regStatus.status === 'FAILED'
+        ? 'Indexing Failed'
+        : 'Not Yet Indexed',
+      stage: regStatus.stage,
+      progress: regStatus.progress,
+      counts: regStatus.counts,
+      categories: regStatus.categories,
+      isDurable: regStatus.isDurable,
+      storageMode: regStatus.storageMode,
+      storageLabel: regStatus.storageLabel,
+      lastIndexedAt: regStatus.lastIndexedAt,
+      error: regStatus.error,
+      nextStep: (regStatus.status === 'READY' || regStatus.status === 'PARTIAL')
+        ? 'Ready to ask rationale questions about this repository.'
+        : regStatus.status === 'FAILED'
+        ? 'Retry indexing or verify GitHub repository accessibility.'
+        : 'Indexing in progress...'
+    });
+  }
+
   const isIndexed = isExpress || isBackstage || inGraph;
+
+  const commits = inMemoryGraph.findNodesByLabel('Commit').filter(c => c.repository === repo || c.id?.startsWith(`${repo}:`));
+  const prs = inMemoryGraph.findNodesByLabel('PullRequest').filter(p => p.repository === repo || p.id?.startsWith(`${repo}:`));
+  const issues = inMemoryGraph.findNodesByLabel('Issue').filter(i => i.repository === repo || i.id?.startsWith(`${repo}:`));
+  const adrs = inMemoryGraph.findNodesByLabel('ADR').filter(a => a.id.startsWith(repo) || a.repository === repo);
+  const manifests = inMemoryGraph.findNodesByLabel('Manifest').filter(m => m.id.startsWith(repo) || m.repository === repo);
+
+  const neo4jHealth = await checkNeo4jHealth().catch(() => ({ connected: false }));
+  const isDurable = Boolean(neo4jHealth.connected);
 
   res.json({
     repository: repo,
     indexed: isIndexed,
     status: isIndexed ? 'FULLY_INDEXED' : 'UNINDEXED',
     statusLabel: isIndexed ? 'Indexed & Provenance Ready' : 'Not Yet Indexed',
+    counts: isIndexed ? {
+      commits: commits.length,
+      pullRequests: prs.length,
+      issues: issues.length,
+      adrs: adrs.length,
+      manifests: manifests.length
+    } : {
+      commits: 0,
+      pullRequests: 0,
+      issues: 0,
+      adrs: 0,
+      manifests: 0
+    },
+    isDurable: isIndexed ? isDurable : false,
+    storageMode: isIndexed ? (isDurable ? 'neo4j_active' : 'in_memory_verified_fallback') : 'unindexed_repository',
+    storageLabel: isIndexed ? (isDurable ? 'Neo4j Persistent Graph' : 'In-Memory Store') : 'Unindexed Store',
     description: isExpress 
       ? 'Verified Node.js framework historical slice: 4.0-4.16.0 body-parser compromise line with maintainer consensus and manifest artifacts.' 
       : isBackstage 
       ? 'Verified CNCF project ADR slice: ADR013 to ADR014 native fetch supersession with PR #27925 maintainer quote.' 
-      : 'This repository has not been indexed for historical investigation in this demonstration environment.',
-    nextStep: isIndexed ? null : 'Select Express.js or Backstage to explore verified decision provenance.'
+      : (isIndexed ? 'Indexed repository with historical evidence records in graph store.' : 'This repository has not been indexed for historical investigation in this demonstration environment.'),
+    nextStep: isIndexed ? 'Ready to ask rationale questions about this repository.' : 'Click "Index Repository Evidence" to ingest commits, issues, PRs, and decisions.'
   });
+});
+
+/**
+ * POST /api/v1/why-code/index-repository
+ * Triggers general-purpose indexing for an arbitrary GitHub repository.
+ * Fetches commits, diffs, PRs, issues, ADRs, and manifests through GitHub API.
+ */
+codewhyRouter.post('/why-code/index-repository', async (req, res) => {
+  try {
+    const {
+      repository,
+      repo,
+      forceReindex = false,
+      commitLimit = 25,
+      prLimit = 15,
+      issueLimit = 15,
+      githubToken
+    } = req.body || {};
+
+    const targetRepo = repository || repo;
+    if (!targetRepo || typeof targetRepo !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Repository parameter is required (format: owner/repo or full GitHub URL).'
+      });
+    }
+
+    try {
+      normalizeGitHubRepo(targetRepo);
+    } catch (normErr) {
+      return res.status(400).json({
+        success: false,
+        error: normErr.message
+      });
+    }
+
+    // Execute indexing
+    const result = await indexRepository(targetRepo, {
+      forceReindex: Boolean(forceReindex),
+      commitLimit: Number(commitLimit) || 25,
+      prLimit: Number(prLimit) || 15,
+      issueLimit: Number(issueLimit) || 15,
+      githubToken: githubToken || process.env.GITHUB_TOKEN
+    });
+
+    if (!result.success) {
+      return res.status(result.status === 'FAILED' ? 422 : 500).json(result);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('[CodeWhy] Indexing route error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: `Indexing failed: ${err.message}`
+    });
+  }
 });
 
 /**
@@ -162,6 +287,9 @@ codewhyRouter.get('/why-code/evaluation', (req, res) => {
  */
 codewhyRouter.get('/evidence/status', async (req, res) => {
   const health = await checkNeo4jHealth().catch((err) => ({ connected: false, error: err.message, status: 'unreachable' }));
+  const repoNodes = inMemoryGraph.findNodesByLabel('Repository').map(r => r.id);
+  const activeRepositories = Array.from(new Set(['expressjs/express', 'backstage/backstage', ...repoNodes])).filter(r => Boolean(inMemoryGraph.getNode(r)));
+
   res.json({
     neo4jConnected: Boolean(health.connected),
     neo4jStatus: health.status || (health.connected ? 'connected' : 'unreachable'),
@@ -171,7 +299,7 @@ codewhyRouter.get('/evidence/status', async (req, res) => {
     storageLabel: health.connected ? 'Neo4j Persistent Graph' : 'In-Memory Fallback (Neo4j Offline)',
     inMemoryNodeCount: inMemoryGraph.nodes.size,
     inMemoryEdgeCount: inMemoryGraph.edges.length,
-    activeRepositories: ['expressjs/express', 'backstage/backstage'].filter(r => Boolean(inMemoryGraph.getNode(r)))
+    activeRepositories
   });
 });
 
@@ -224,9 +352,9 @@ codewhyRouter.post('/why-code', async (req, res) => {
   try {
     const {
       repository = 'expressjs/express',
-      filePath = 'lib/express.js',
-      symbol = 'exports.json',
-      question = 'Why does lib/express.js export express.json directly while express.bodyParser throws an error?',
+      filePath = (req.body?.repository && !req.body.repository.toLowerCase().includes('express')) ? (req.body.filePath || null) : (req.body?.filePath || 'lib/express.js'),
+      symbol = (req.body?.repository && !req.body.repository.toLowerCase().includes('express')) ? (req.body.symbol || null) : (req.body?.symbol || 'exports.json'),
+      question = req.body?.question || req.body?.query || (req.body?.repository?.toLowerCase().includes('express') ? 'Why does lib/express.js export express.json directly while express.bodyParser throws an error?' : ''),
       useLiveAi = false
     } = req.body || {};
 

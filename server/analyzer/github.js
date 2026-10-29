@@ -10,25 +10,28 @@ export function parseGitHubUrl(url) {
   }
 
   const cleanUrl = url.trim().replace(/\/+$/, '');
-  const match = cleanUrl.match(/github\.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:\/tree\/([a-zA-Z0-9_.-]+))?/);
-  
-  if (!match) {
-    throw new Error('Invalid GitHub repository URL format. Example: https://github.com/facebook/react');
+  let owner = '';
+  let repo = '';
+  let branch = null;
+
+  const urlMatch = cleanUrl.match(/(?:github\.com\/)?([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)(?:\/tree\/([a-zA-Z0-9_.-]+))?/);
+  if (!urlMatch) {
+    throw new Error('Invalid GitHub repository format. Example: "expressjs/express" or "https://github.com/expressjs/express"');
   }
 
-  const owner = match[1];
-  let repo = match[2];
+  owner = urlMatch[1];
+  repo = urlMatch[2];
   if (repo.endsWith('.git')) {
     repo = repo.slice(0, -4);
   }
-  const branch = match[3] || null;
+  branch = urlMatch[3] || null;
 
   return { owner, repo, branch, fullName: `${owner}/${repo}` };
 }
 
 export async function fetchGitHubRepoData({ owner, repo, branch }, githubToken = process.env.GITHUB_TOKEN) {
   const headers = {
-    'User-Agent': 'DevLens-AI-Analyzer',
+    'User-Agent': 'CodeWhy-Analyzer',
     'Accept': 'application/vnd.github.v3+json',
   };
 

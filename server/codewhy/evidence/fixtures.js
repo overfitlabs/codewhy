@@ -46,6 +46,13 @@ export const EXPRESS_BODY_PARSER_FIXTURE = Object.freeze({
       }
     ]
   },
+  files: [
+    { id: 'expressjs/express:file:lib/express.js', path: 'lib/express.js', name: 'express.js', extension: '.js', size: 3450 },
+    { id: 'expressjs/express:file:lib/application.js', path: 'lib/application.js', name: 'application.js', extension: '.js', size: 18200 },
+    { id: 'expressjs/express:file:lib/router/index.js', path: 'lib/router/index.js', name: 'index.js', extension: '.js', size: 14100 },
+    { id: 'expressjs/express:file:package.json', path: 'package.json', name: 'package.json', extension: '.json', size: 1200 },
+    { id: 'expressjs/express:file:Readme.md', path: 'Readme.md', name: 'Readme.md', extension: '.md', size: 5400 }
+  ],
   commits: [
     {
       sha: '9ea18e10c999d99278ad7ad1cac74009bf579c50',
@@ -204,6 +211,12 @@ export const BACKSTAGE_FETCH_ADR_FIXTURE = Object.freeze({
       }
     ]
   },
+  files: [
+    { id: 'backstage/backstage:file:docs/architecture-decisions/adr014-use-fetch.md', path: 'docs/architecture-decisions/adr014-use-fetch.md', name: 'adr014-use-fetch.md', extension: '.md', size: 2800 },
+    { id: 'backstage/backstage:file:docs/architecture-decisions/adr013-use-node-fetch.md', path: 'docs/architecture-decisions/adr013-use-node-fetch.md', name: 'adr013-use-node-fetch.md', extension: '.md', size: 2100 },
+    { id: 'backstage/backstage:file:packages/backend-defaults/src/entrypoints/rootHttpRouter/rootHttpRouterServiceFactory.ts', path: 'packages/backend-defaults/src/entrypoints/rootHttpRouter/rootHttpRouterServiceFactory.ts', name: 'rootHttpRouterServiceFactory.ts', extension: '.ts', size: 6500 },
+    { id: 'backstage/backstage:file:package.json', path: 'package.json', name: 'package.json', extension: '.json', size: 4500 }
+  ],
   adrs: [
     {
       id: 'backstage/backstage:adr:adr013-use-node-fetch',

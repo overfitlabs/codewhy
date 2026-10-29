@@ -12,9 +12,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "test": "node --test tests/unit.test.js tests/codewhy.test.js",
+    "test": "node --test tests/unit.test.js tests/codewhy.test.js tests/indexing.test.js tests/epistemic_validation.test.js tests/unified_repository_context.test.js",
+    "test:epistemic": "node --test tests/epistemic_validation.test.js",
     "test:unit": "node --test tests/unit.test.js",
     "test:codewhy": "node --test tests/codewhy.test.js",
+    "test:indexing": "node --test tests/indexing.test.js",
     "test:integration": "node --test tests/integration.test.js"
   },
   "dependencies": {
