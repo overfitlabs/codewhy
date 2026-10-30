@@ -98,7 +98,7 @@ export default function Header({
         {/* Right Tools: Active Repository Indicator, Storage Diagnostics, Theme Toggle */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Unified Active Repository Context Pill */}
-          {selectedRepository && (
+          {selectedRepository ? (
             <div 
               className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-[#30363d] bg-neutral-50 dark:bg-[#21262d] text-xs font-mono text-neutral-700 dark:text-[#c9d1d9]"
               title={`Shared Active Repository: ${selectedRepository} (${repoStatusData?.isIndexed ? 'Indexed & Ready' : 'Unindexed'})`}
@@ -108,6 +108,14 @@ export default function Header({
               <span className="font-semibold text-neutral-800 dark:text-[#f0f6fc] max-w-[130px] truncate">
                 {selectedRepository}
               </span>
+            </div>
+          ) : (
+            <div 
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-neutral-300 dark:border-[#30363d] text-xs text-neutral-400 dark:text-[#8b949e]"
+              title="No repository currently selected. Select one in Rationale Explorer."
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+              <span className="text-[11px]">No Repo Selected</span>
             </div>
           )}
 

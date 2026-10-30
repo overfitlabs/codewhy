@@ -340,15 +340,34 @@ export async function ingestSliceToGraph(sliceData, options = {}) {
       }
 
       // 9. Ingest Bounded Repository Files
-      for (const f of (sliceData.files || []).slice(0, 100)) {
+      for (const f of (sliceData.files || []).slice(0, 150)) {
         const fid = f.id || `${repoId}:file:${f.path}`;
+        const fileName = f.name || (typeof f.path === 'string' ? f.path.split('/').pop() : 'file');
+        const ext = f.extension || (typeof f.path === 'string' && f.path.includes('.') ? '.' + f.path.split('.').pop() : '');
         await runQuery(
           `MERGE (f:File { id: $fid })
-           SET f.path = $f.path, f.name = $f.name, f.size = $f.size, f.repository = $repo.id
+           SET f.path = $f.path,
+               f.name = $f.name,
+               f.size = $f.size,
+               f.extension = $f.extension,
+               f.url = $f.url,
+               f.repository = $repo.id,
+               f.repoFullName = $repo.id
            WITH f
            MATCH (r:Repository { id: $repo.id })
-           MERGE (r)-[:CONTAINS_FILE]->(f)`,
-          { fid, f: { path: f.path, name: f.name || f.path.split('/').pop(), size: f.size || 0 }, repo: repository }
+           MERGE (r)-[:CONTAINS_FILE]->(f)
+           MERGE (r)-[:REPOSITORY_CONTAINS_FILE]->(f)`,
+          {
+            fid,
+            f: {
+              path: f.path,
+              name: fileName,
+              size: f.size || 0,
+              extension: ext,
+              url: f.url || `https://github.com/${repoId}/blob/main/${f.path}`
+            },
+            repo: repository
+          }
         );
       }
 
@@ -407,16 +426,31 @@ export async function rehydrateFromNeo4j(repoId) {
 
     // Files & Symbols
     const filesRes = await runQuery(
-      `MATCH (r:Repository { id: $repoId })-[:CONTAINS_FILE]->(f:File)
+      `MATCH (f:File)
+       WHERE toLower(f.repoFullName) = toLower($repoId)
+          OR toLower(f.repository) = toLower($repoId)
+          OR toLower(f.id) STARTS WITH toLower($prefix1)
+          OR toLower(f.id) STARTS WITH toLower($prefix2)
        OPTIONAL MATCH (s:Symbol)-[:DEFINED_IN]->(f)
-       RETURN f, collect(s) as symbols`,
-      { repoId }
+       RETURN f, collect(s) as symbols
+       ORDER BY f.path ASC
+       LIMIT 250`,
+      { repoId, prefix1: `${repoId}:`, prefix2: `${repoId}::` }
     );
     for (const record of (filesRes.records || [])) {
       const fileProps = record.f;
-      if (fileProps && fileProps.id) {
-        inMemoryGraph.addNode('File', fileProps.id, fileProps);
-        inMemoryGraph.addEdge(repoId, fileProps.id, 'CONTAINS_FILE');
+      if (fileProps && (fileProps.id || fileProps.path)) {
+        const fid = fileProps.id || `${repoId}:file:${fileProps.path}`;
+        const fileName = fileProps.name || (typeof fileProps.path === 'string' ? fileProps.path.split('/').pop() : 'file');
+        inMemoryGraph.addNode('File', fid, {
+          ...fileProps,
+          id: fid,
+          name: fileName,
+          repository: repoId,
+          repoFullName: repoId
+        });
+        inMemoryGraph.addEdge(repoId, fid, 'CONTAINS_FILE');
+        inMemoryGraph.addEdge(repoId, fid, 'REPOSITORY_CONTAINS_FILE');
       }
 
       const symbols = record.symbols || [];

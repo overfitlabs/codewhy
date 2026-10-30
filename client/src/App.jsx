@@ -22,6 +22,13 @@ export default function App() {
 
   // Primary active tab: 'codewhy' (default) | 'memory' | 'eval' | 'overview' | 'architecture' | 'ask'
   const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramTab = urlParams.get('tab');
+      if (paramTab && ['codewhy', 'memory', 'eval'].includes(paramTab)) {
+        return paramTab;
+      }
+    } catch {}
     const saved = sessionStorage.getItem(SESSION_TAB_KEY);
     return (saved && saved !== 'overview') ? saved : 'codewhy';
   });
@@ -43,22 +50,54 @@ export default function App() {
 
   // Shared single source of truth for active repository across all tabs
   const [selectedRepository, setSelectedRepository] = useState(() => {
-    return normalizeRepoInput(sessionStorage.getItem('codewhy_selected_repo') || 'expressjs/express');
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramRepo = urlParams.get('repo');
+      if (paramRepo) {
+        return normalizeRepoInput(paramRepo);
+      }
+    } catch {}
+    const saved = sessionStorage.getItem('codewhy_selected_repo');
+    return saved ? normalizeRepoInput(saved) : '';
   });
 
   // Real repository indexing and artifact status owned by application shell
-  const [repoStatusData, setRepoStatusData] = useState({
-    repository: selectedRepository,
-    status: 'READY',
-    statusLabel: 'Indexed & Provenance Ready',
-    isIndexed: true,
-    isDurable: true,
-    storageMode: 'neo4j_active',
-    storageLabel: 'Neo4j Persistent Graph',
-    counts: null,
-    categories: null,
-    lastIndexedAt: null,
-    error: null
+  const [repoStatusData, setRepoStatusData] = useState(() => {
+    let initialRepo = '';
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramRepo = urlParams.get('repo');
+      initialRepo = paramRepo ? normalizeRepoInput(paramRepo) : (sessionStorage.getItem('codewhy_selected_repo') || '');
+    } catch {}
+    if (initialRepo) {
+      const normalized = normalizeRepoInput(initialRepo);
+      return {
+        repository: normalized,
+        status: 'CHECKING',
+        statusLabel: 'Checking Repository Status...',
+        isIndexed: false,
+        isDurable: false,
+        storageMode: 'checking',
+        storageLabel: 'Checking Storage...',
+        counts: null,
+        categories: null,
+        lastIndexedAt: null,
+        error: null
+      };
+    }
+    return {
+      repository: '',
+      status: 'UNSELECTED',
+      statusLabel: 'No Repository Selected',
+      isIndexed: false,
+      isDurable: false,
+      storageMode: 'none',
+      storageLabel: 'No Active Repository',
+      counts: null,
+      categories: null,
+      lastIndexedAt: null,
+      error: null
+    };
   });
   const [isLoadingRepoStatus, setIsLoadingRepoStatus] = useState(false);
   const [repoStatusError, setRepoStatusError] = useState(null);
@@ -102,6 +141,20 @@ export default function App() {
       sessionStorage.setItem('codewhy_selected_repo', selectedRepository);
     }
   }, [selectedRepository]);
+
+  // Synchronize URL query params for bookmarking, sharing, and deep linking
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (activeTab) url.searchParams.set('tab', activeTab);
+      if (selectedRepository) {
+        url.searchParams.set('repo', selectedRepository);
+      } else {
+        url.searchParams.delete('repo');
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch {}
+  }, [activeTab, selectedRepository]);
 
   // Load graph status on mount
   useEffect(() => {
@@ -350,19 +403,23 @@ export default function App() {
                     Interactive Architecture & Multi-Hop Decision Graph
                   </h2>
                   <p className="text-xs text-neutral-600 dark:text-[#8b949e]">
-                    Inspect connected commits, pull requests, issues, ADRs, and files scoped to &ldquo;{selectedRepository}&rdquo;.
+                    {selectedRepository
+                      ? `Inspect connected commits, pull requests, issues, ADRs, and files scoped to "${selectedRepository}".`
+                      : 'Inspect connected commits, pull requests, issues, ADRs, and files for any indexed repository.'}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleNavigateToRationale(selectedRepository)}
-                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2 self-start md:self-auto shrink-0 shadow-xs"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>Investigate &ldquo;{selectedRepository}&rdquo; in Rationale</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                {selectedRepository && (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateToRationale(selectedRepository)}
+                    className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-2 self-start md:self-auto shrink-0 shadow-xs"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Investigate &ldquo;{selectedRepository}&rdquo; in Rationale</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Shared Repository Selector Bar */}
@@ -432,7 +489,32 @@ export default function App() {
               </div>
             )}
 
-            {hasGraphData && !isLoadingMemory ? (
+            {!selectedRepository ? (
+              <div className="p-10 rounded-2xl border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div className="space-y-1 max-w-lg mx-auto">
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-[#f0f6fc]">
+                    No Repository Selected
+                  </h3>
+                  <p className="text-xs text-neutral-500 dark:text-[#8b949e] leading-relaxed">
+                    Select a verified demo preset on the Rationale Explorer landing page or switch to any public GitHub repository above to visualize its decision graph and source file hierarchy.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('codewhy')}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-2 shadow-xs"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Open Rationale Explorer</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : hasGraphData && !isLoadingMemory ? (
               <ProjectMemoryTab
                 repository={selectedRepository}
                 analysisData={analysisData}

@@ -3,7 +3,15 @@
   "version": "1.0.0",
   "description": "CodeWhy: Evidence-First Historical & Architectural Rationale Engine (hackFront India Theme T1.1)",
   "type": "module",
-  "author": "Shubham Singh Ranswal",
+  "author": "Overfit Labs (overfit)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/overfitlabs/codewhy.git"
+  },
+  "homepage": "https://github.com/overfitlabs/codewhy#readme",
+  "bugs": {
+    "url": "https://github.com/overfitlabs/codewhy/issues"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "concurrently -k \"npm run server\" \"npm run dev:client\"",

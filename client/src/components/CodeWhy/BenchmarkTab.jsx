@@ -171,7 +171,17 @@ export default function BenchmarkTab({
         </div>
 
         {/* Real Artifact Counts Grid for the Selected Repository */}
-        {isCurrentRepoIndexed ? (
+        {!selectedRepository ? (
+          <div className="p-4 rounded-xl bg-neutral-100/70 dark:bg-[#21262d] border border-neutral-200 dark:border-[#30363d] text-xs text-neutral-700 dark:text-[#c9d1d9] space-y-1">
+            <div className="font-semibold flex items-center gap-2">
+              <Info className="w-4 h-4 text-indigo-500" />
+              <span>No Repository Selected</span>
+            </div>
+            <p className="text-neutral-500 dark:text-[#8b949e] leading-relaxed">
+              Use the Switch repository input above or select a repository in Rationale Explorer to inspect its evidence and artifact audit.
+            </p>
+          </div>
+        ) : isCurrentRepoIndexed ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1 text-xs">
             <div className="p-3 rounded-xl bg-white dark:bg-[#161b22] border border-neutral-200 dark:border-[#30363d] space-y-1">
               <div className="flex items-center gap-1.5 text-neutral-500 dark:text-[#8b949e]">
@@ -250,7 +260,7 @@ export default function BenchmarkTab({
           <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
             <span className="font-bold text-neutral-900 dark:text-[#f0f6fc]">Curated Benchmark vs Selected Repository Scope: </span>
-            The quantitative 20-case evaluation below reflects a <strong>frozen curated benchmark suite</strong> specifically evaluating historical decisions in <code>expressjs/express</code> (10 cases) and <code>backstage/backstage</code> (10 cases). Arbitrary repository benchmark scoring is not executed. The curated score of <strong>87.57 / 100</strong> belongs strictly to that curated suite and is <strong>not</strong> an evaluation score for <code>{selectedRepository}</code>.
+            The quantitative 20-case evaluation below reflects a <strong>frozen curated benchmark suite</strong> specifically evaluating historical decisions in <code>expressjs/express</code> (10 cases) and <code>backstage/backstage</code> (10 cases). Arbitrary repository benchmark scoring is not executed. The curated score of <strong>87.57 / 100</strong> belongs strictly to that curated suite and is <strong>not</strong> an evaluation score for <code>{selectedRepository || 'custom repositories'}</code>.
           </p>
         </div>
       </div>

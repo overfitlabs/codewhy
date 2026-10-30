@@ -5,9 +5,17 @@
 <h1 align="center">CodeWhy</h1>
 <p align="center"><strong>Evidence-First Historical & Architectural Rationale Engine</strong></p>
 
-> **hackFront India** | **Theme T1**: AI and Developer Tools | **Problem Statement T1.1**: “Why The Code Is Like This”  
+<p align="center">
+  <a href="https://github.com/overfitlabs/codewhy/actions"><img src="https://img.shields.io/badge/tests-94%20passed-success.svg?style=flat-square" alt="Test Suite" /></a>
+  <a href="https://github.com/overfitlabs/codewhy/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT" /></a>
+  <a href="https://neo4j.com"><img src="https://img.shields.io/badge/graph-Neo4j%20Aura-008CC1.svg?style=flat-square&logo=neo4j&logoColor=white" alt="Neo4j" /></a>
+  <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/ai-Google%20Gemini-4285F4.svg?style=flat-square&logo=google&logoColor=white" alt="Gemini" /></a>
+  <a href="https://sarvam.ai"><img src="https://img.shields.io/badge/voice-Sarvam%20AI%20(11%20Indic)-FF6F00.svg?style=flat-square" alt="Sarvam AI" /></a>
+</p>
+
+> **hackFront India 2026** | **Theme T1**: AI and Developer Tools | **Problem Statement T1.1**: “Why The Code Is Like This”  
 > **Repository**: [github.com/overfitlabs/codewhy](https://github.com/overfitlabs/codewhy)  
-> **Runbook & Demo Script**: [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md)
+> **Runbook & Demo Script**: [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md) · **Contributing**: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · **Security**: [`SECURITY.md`](./SECURITY.md)
 
 ---
 

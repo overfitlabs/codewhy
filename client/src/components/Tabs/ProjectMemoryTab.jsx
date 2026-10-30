@@ -259,7 +259,13 @@ export default function ProjectMemoryTab({
   onAskInCodebase
 }) {
   // Left workspace view mode: 'graph' (Neo4j Graph Canvas) or 'files' (Integrated Repository File Tree)
-  const [workspaceMode, setWorkspaceMode] = useState('graph');
+  const [workspaceMode, setWorkspaceMode] = useState(() => {
+    try {
+      const v = new URLSearchParams(window.location.search).get('view');
+      if (v === 'files') return 'files';
+    } catch {}
+    return 'graph';
+  });
 
   // Graph search, node-type filter, selection & viewport state
   const [graphSearch, setGraphSearch] = useState('');
@@ -1277,7 +1283,14 @@ export default function ProjectMemoryTab({
               <div className="inline-flex rounded border border-neutral-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] p-0.5">
                 <button
                   type="button"
-                  onClick={() => setWorkspaceMode('graph')}
+                  onClick={() => {
+                    setWorkspaceMode('graph');
+                    try {
+                      const url = new URL(window.location.href);
+                      url.searchParams.delete('view');
+                      window.history.replaceState({}, '', url.toString());
+                    } catch {}
+                  }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                     workspaceMode === 'graph'
                       ? 'bg-blue-600 text-white'
@@ -1289,7 +1302,14 @@ export default function ProjectMemoryTab({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWorkspaceMode('files')}
+                  onClick={() => {
+                    setWorkspaceMode('files');
+                    try {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('view', 'files');
+                      window.history.replaceState({}, '', url.toString());
+                    } catch {}
+                  }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded transition-colors ${
                     workspaceMode === 'files'
                       ? 'bg-blue-600 text-white'

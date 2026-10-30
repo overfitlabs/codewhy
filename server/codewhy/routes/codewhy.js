@@ -172,6 +172,11 @@ codewhyRouter.get('/why-code/repository-status', async (req, res) => {
   const issues = inMemoryGraph.findNodesByLabel('Issue').filter(i => i.repository === repo || i.id?.startsWith(`${repo}:`));
   const adrs = inMemoryGraph.findNodesByLabel('ADR').filter(a => a.id.startsWith(repo) || a.repository === repo);
   const manifests = inMemoryGraph.findNodesByLabel('Manifest').filter(m => m.id.startsWith(repo) || m.repository === repo);
+  const files = inMemoryGraph.findNodesByLabel('File').filter(f => {
+    const r = (f.repository || f.repoFullName || '').toLowerCase();
+    const id = (f.id || '').toLowerCase();
+    return r === repoLower || id.startsWith(`${repoLower}:`) || id.startsWith(`${repoLower}::`);
+  });
 
   const neo4jHealth = await checkNeo4jHealth().catch(() => ({ connected: false }));
   const isDurable = Boolean(neo4jHealth.connected);
@@ -186,13 +191,15 @@ codewhyRouter.get('/why-code/repository-status', async (req, res) => {
       pullRequests: prs.length,
       issues: issues.length,
       adrs: adrs.length,
-      manifests: manifests.length
+      manifests: manifests.length,
+      files: files.length
     } : {
       commits: 0,
       pullRequests: 0,
       issues: 0,
       adrs: 0,
-      manifests: 0
+      manifests: 0,
+      files: 0
     },
     isDurable: isIndexed ? isDurable : false,
     storageMode: isIndexed ? (isDurable ? 'neo4j_active' : 'in_memory_verified_fallback') : 'unindexed_repository',

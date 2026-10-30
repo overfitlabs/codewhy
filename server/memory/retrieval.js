@@ -1224,36 +1224,51 @@ export async function getRepositoryMemoryOverview(repoFullNameInput, options = {
     );
 
     let fileNodes = inMemoryGraph.findNodesByLabel('File').filter(
-      f => f.repository === repoFullName || f.id?.startsWith(`${repoFullName}:`)
+      f => {
+        const r = (f.repository || f.repoFullName || '').toLowerCase();
+        const id = (f.id || '').toLowerCase();
+        return r === repoFullName || id.startsWith(`${repoFullName}:`) || id.startsWith(`${repoFullName}::`);
+      }
     );
 
-    // If inMemoryGraph has no File nodes for this repo but Neo4j is connected, query Neo4j for files
-    if (fileNodes.length === 0) {
-      try {
-        const neoFilesRes = await runQuery(
-          `MATCH (f:File)
-           WHERE f.repoFullName = $repoFullName OR f.repository = $repoFullName OR f.id STARTS WITH $prefix
-           RETURN f.path as path, coalesce(f.name, f.path) as name, coalesce(f.size, 0) as size, f.id as id
-           LIMIT 120`,
-          { repoFullName, prefix: `${repoFullName}:` },
-          { env, accessMode: 'READ' }
-        );
-        for (const row of (neoFilesRes.records || [])) {
-          if (row.path) {
-            inMemoryGraph.addNode('File', row.id || `${repoFullName}:file:${row.path}`, {
+    // Query Neo4j to augment in-memory graph with all persisted files for this repository
+    try {
+      const neoFilesRes = await runQuery(
+        `MATCH (f:File)
+         WHERE toLower(f.repoFullName) = toLower($repoFullName)
+            OR toLower(f.repository) = toLower($repoFullName)
+            OR toLower(f.id) STARTS WITH toLower($prefix1)
+            OR toLower(f.id) STARTS WITH toLower($prefix2)
+         RETURN f.path as path, coalesce(f.name, f.path) as name, coalesce(f.size, 0) as size, f.id as id
+         ORDER BY f.path ASC
+         LIMIT 250`,
+        { repoFullName, prefix1: `${repoFullName}:`, prefix2: `${repoFullName}::` },
+        { env, accessMode: 'READ' }
+      );
+      for (const row of (neoFilesRes.records || [])) {
+        if (row.path) {
+          const fid = row.id || `${repoFullName}:file:${row.path}`;
+          if (!inMemoryGraph.getNode(fid)) {
+            inMemoryGraph.addNode('File', fid, {
+              id: fid,
               path: row.path,
               name: row.name || (typeof row.path === 'string' ? row.path.split('/').pop() : 'file'),
               size: Number(row.size || 0),
-              repository: repoFullName
+              repository: repoFullName,
+              repoFullName
             });
           }
         }
-        fileNodes = inMemoryGraph.findNodesByLabel('File').filter(
-          f => f.repository === repoFullName || f.id?.startsWith(`${repoFullName}:`)
-        );
-      } catch {
-        // Ignore if query fails
       }
+      fileNodes = inMemoryGraph.findNodesByLabel('File').filter(
+        f => {
+          const r = (f.repository || f.repoFullName || '').toLowerCase();
+          const id = (f.id || '').toLowerCase();
+          return r === repoFullName || id.startsWith(`${repoFullName}:`) || id.startsWith(`${repoFullName}::`);
+        }
+      );
+    } catch {
+      // In-memory fallback if Neo4j query fails
     }
 
     const filesList = fileNodes.length > 0
