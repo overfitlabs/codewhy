@@ -7,6 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/overfitlabs/codewhy/actions"><img src="https://img.shields.io/badge/tests-94%20passed-success.svg?style=flat-square" alt="Test Suite" /></a>
+  <a href="https://codewhy.onrender.com/"><img src="https://img.shields.io/badge/live%20demo-codewhy.onrender.com-success.svg?style=flat-square&logo=render&logoColor=white" alt="Live Demo" /></a>
   <a href="https://github.com/overfitlabs/codewhy/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License: MIT" /></a>
   <a href="https://neo4j.com"><img src="https://img.shields.io/badge/graph-Neo4j%20Aura-008CC1.svg?style=flat-square&logo=neo4j&logoColor=white" alt="Neo4j" /></a>
   <a href="https://ai.google.dev"><img src="https://img.shields.io/badge/ai-Google%20Gemini-4285F4.svg?style=flat-square&logo=google&logoColor=white" alt="Gemini" /></a>
@@ -14,8 +15,12 @@
 </p>
 
 > **hackFront India 2026** | **Theme T1**: AI and Developer Tools | **Problem Statement T1.1**: “Why The Code Is Like This”  
+> **Live Demo**: [https://codewhy.onrender.com/](https://codewhy.onrender.com/)  
 > **Repository**: [github.com/overfitlabs/codewhy](https://github.com/overfitlabs/codewhy)  
 > **Runbook & Demo Script**: [`DEMO_RUNBOOK.md`](./DEMO_RUNBOOK.md) · **Contributing**: [`CONTRIBUTING.md`](./CONTRIBUTING.md) · **Security**: [`SECURITY.md`](./SECURITY.md)
+
+> [!NOTE]
+> **Live Demo Notice**: The live application is hosted on Render's free tier. If the instance has been inactive, it spins down to sleep. **Initial cold boot may take 30–50 seconds to wake up.** Once initialized, responses and graph traversals are fast and persistent.
 
 ---
 

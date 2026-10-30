@@ -2,7 +2,8 @@
 
 > **Theme T1**: AI and Developer Tools  
 > **Problem Statement T1.1**: “Why The Code Is Like This”  
-> **Evidence-First Architectural & Historical Provenance Engine**
+> **Evidence-First Architectural & Historical Provenance Engine**  
+> **Live Demo URL**: [https://codewhy.onrender.com/](https://codewhy.onrender.com/) *(Render free-tier cold boot may take 30–50s if sleeping)*
 
 ---
 
